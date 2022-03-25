@@ -1,0 +1,9 @@
+version: "3"
+
+services:
+  builder:
+    build: .
+    volumes:
+      - "./src:/build/src"
+      - "./build:/build/build"
+
