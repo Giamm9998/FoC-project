@@ -1,2 +1,3 @@
-./Makefile
+# Ignore local Makefile
+/Makefile
 
