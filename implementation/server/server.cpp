@@ -1,3 +1,4 @@
+#include "../common/common.h"
 #include <csignal>
 #include <iostream>
 #include <netinet/in.h>
@@ -19,16 +20,17 @@ pid_t server = -1;
  */
 void sigint_handler(int signum) {
     if (server == getpid()) {
-        cout << "Gracefully shutting down server..." << endl;
+        cout << "Waiting for every child process to terminate... " << endl;
 
         while (wait(NULL) > 0)
             ;
-        cout << " Bye!" << endl;
+        cout << "Bye!" << endl;
 
         exit(EXIT_SUCCESS);
     }
 }
 
+/* Server loop for the client to send requests to the server */
 void serve_client(int client_fd) {
     char test[] = "Hello from server!";
     char buffer[1024] = {0};
@@ -38,7 +40,7 @@ void serve_client(int client_fd) {
 }
 
 int main() {
-    int sock, new_client, enable_sockopt = 1;
+    int sock, new_client;
     struct sockaddr_in address;
     socklen_t addr_len = sizeof(address);
     pid_t res;
@@ -50,15 +52,21 @@ int main() {
 
     // Create socket file descriptor
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("socket failed");
+        perror("Socket creation failed");
         exit(EXIT_FAILURE);
     }
 
+#ifdef DEBUG
+    int enable_sockopt = 1;
+    // Set SO_REUSEADDR flag, so that the same port can be re-used right away
+    // without waiting the TIME_WAIT time. This is used to avoid errors during
+    // debug time due to the default TCP behavior.
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable_sockopt,
                    sizeof(int)) < 0) {
-        perror("setsockopt failed");
+        perror("Setting socket options failed");
         exit(EXIT_FAILURE);
     }
+#endif
 
     // Set socket address and port
     address.sin_family = AF_INET;
@@ -67,22 +75,36 @@ int main() {
 
     // Attach socket to specified port
     if (bind(sock, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("bind failed");
+        perror("Socket binding failed");
         exit(EXIT_FAILURE);
     }
 
     // Start listening on it
     if (listen(sock, 0) < 0) {
-        perror("listen");
+        perror("Socket listen failed");
         exit(EXIT_FAILURE);
     }
 
+#ifdef DEBUG
+    // When in debug mode, don't spawn child processes. Instead, use the main
+    // process to serve the client request. Should make debugging easier.
+    if ((new_client = accept(sock, (struct sockaddr *)&address, &addr_len)) >=
+        0) {
+        serve_client(new_client);
+        // Close the file descriptor after we are done with it
+        close(new_client);
+        exit(EXIT_SUCCESS);
+    } else {
+        perror("Accept failed");
+        exit(EXIT_FAILURE);
+    }
+#else
     // Accept loop: each time a new client connects start a new process for that
     // client. The child process will handle all interactions with the client.
     while ((new_client =
                 accept(sock, (struct sockaddr *)&address, &addr_len)) >= 0) {
         if ((res = fork()) == -1) {
-            perror("fork");
+            perror("Fork failed");
             exit(EXIT_FAILURE);
         } else if (res == 0) {
             serve_client(new_client);
@@ -94,6 +116,7 @@ int main() {
         // The parent closes the fd immediately
         close(new_client);
     }
-    perror("accept");
+    perror("Accept failed");
     exit(EXIT_FAILURE);
+#endif
 }
