@@ -1,3 +1,5 @@
+#include "../common/common.h"
+#include "authentication.h"
 #include <arpa/inet.h>
 #include <iostream>
 #include <stdio.h>
@@ -11,29 +13,73 @@
 
 using namespace std;
 
+int sock;
+unsigned char *shared_key;
+
 void greet_user() {
     // Thanks to https://fsymbols.com/generators/carty/
-    puts("\
+    cout << "\
 ░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░    ░██████╗████████╗░█████╗░██████╗░░█████╗░░██████╗░███████╗\n\
 ██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗    ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔════╝░██╔════╝\n\
 ██║░░╚═╝██║░░░░░██║░░██║██║░░░██║██║░░██║    ╚█████╗░░░░██║░░░██║░░██║██████╔╝███████║██║░░██╗░█████╗░░\n\
 ██║░░██╗██║░░░░░██║░░██║██║░░░██║██║░░██║    ░╚═══██╗░░░██║░░░██║░░██║██╔══██╗██╔══██║██║░░╚██╗██╔══╝░░\n\
 ╚█████╔╝███████╗╚█████╔╝╚██████╔╝██████╔╝    ██████╔╝░░░██║░░░╚█████╔╝██║░░██║██║░░██║╚██████╔╝███████╗\n\
-░╚════╝░╚══════╝░╚════╝░░╚═════╝░╚═════╝░    ╚═════╝░░░░╚═╝░░░░╚════╝░╚═╝░░╚═╝╚═╝░░╚═╝░╚═════╝░╚══════╝\n");
+░╚════╝░╚══════╝░╚════╝░░╚═════╝░╚═════╝░    ╚═════╝░░░░╚═╝░░░░╚════╝░╚═╝░░╚═╝╚═╝░░╚═╝░╚═════╝░╚══════╝"
+         << endl
+         << endl;
 }
 
-void interact(int server_fd) {
-    string input;
-    char buffer[1024] = {0};
-    cout << "What do you want to send to the server? ";
-    cin >> input;
-    write(server_fd, input.c_str(), input.length());
-    read(server_fd, buffer, sizeof(buffer));
-    cout << "From server: " << buffer << endl;
+void print_menu() {
+    cout << "Actions:" << endl;
+    cout << "    list - List your files" << endl;
+    cout << "    upload - Upload a new file" << endl;
+    cout << "    rename - Rename a file" << endl;
+    cout << "    delete - Delete a file" << endl;
+    cout << "    exit - Terminate current session" << endl;
+    cout << "> ";
 }
 
-int main(int argc, char const *argv[]) {
-    int sock = 0, valread;
+/* Loop for the user to interact with the server. */
+void interact() {
+    unsigned char *key;
+    string action;
+    int key_len;
+
+    key_len = get_symmetric_key_length();
+
+    // First of all, the user must run the authentication protocol with the
+    // other party (hopefully the server). The exchange also provides a shared
+    // ephemeral key to use for further communications.
+    shared_key = authenticate(sock, key_len);
+#ifdef DEBUG
+    print_shared_key(shared_key, key_len);
+#endif
+
+    // Interaction loop. The user can perform a set of actions, until he decides
+    // to terminate the session.
+    while (true) {
+        print_menu();
+        if (!getline(cin, action)) {
+            cout << "Error reading input!" << endl;
+        }
+
+        if (action == "list") {
+            // list_files(server_fd, key);
+        } else if (action == "upload") {
+            // upload_file(server_fd, key);
+        } else if (action == "rename") {
+            // rename_file(server_fd, key);
+        } else if (action == "delete") {
+            // delete_file(server_fd, key);
+        } else if (action == "exit") {
+            // gracefully_exit(server_fd, key);
+        } else {
+            cout << "Invalid action!" << endl;
+        }
+    }
+}
+
+int main() {
     struct sockaddr_in serv_addr;
 
     // Create the socket
@@ -62,7 +108,7 @@ int main(int argc, char const *argv[]) {
     greet_user();
 
     // Start interacting with the server
-    interact(sock);
+    interact();
 
     // Close socket when we are done
     close(sock);
