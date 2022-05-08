@@ -1,3 +1,5 @@
 # Ignore local Makefile
 /Makefile
 
+# Ignore every object file
+*.o
