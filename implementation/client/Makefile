@@ -1,9 +1,18 @@
 CC=g++
-CFLAGS=-Wall -Wextra -ansi -pedantic -lcrypto -g
+CFLAGS=-Wall -Wextra -ansi -pedantic -lcrypto
 LDFLAGS=
-SOURCES=client.cpp
+SOURCES=client.cpp authentication.cpp ../common/common.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 BINARY=client
+
+# Debug build flags. Use `make DEBUG=1` to build in debug mode.
+# Defaults to zero (i.e. release)
+DEBUG ?= 0
+ifeq ($(DEBUG), 1)
+    CFLAGS += -DDEBUG -g
+else
+    CFLAGS += -DNDEBUG -O3
+endif
 
 .PHONY : clean
 
