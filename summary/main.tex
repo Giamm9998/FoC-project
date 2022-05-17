@@ -1,16 +1,18 @@
-\documentclass[twoside,a4paper,11pt]{article}
+\documentclass[a4paper,11pt]{article}
 
 %% Packages 
 \usepackage[T1]{fontenc}
 \usepackage[pdftex]{hyperref}
 \usepackage{graphicx}               % Images
-\usepackage[top=3cm, bottom=3cm, left=3cm,right=2cm]{geometry}   % Margins
+\usepackage{geometry}               % Margins
 \usepackage{titletoc}               % Table of contents
 \usepackage{authblk}                % Authors affiliations
 \usepackage{cleveref}               % Better references
 \usepackage{subcaption}             % Subfigures
 \usepackage{enumitem}               % Enumerates and itemizes control
 \usepackage{fancyhdr}
+\usepackage{msc}
+\usepackage{bytefield}
 
 \pagestyle{fancy}
 \fancyhead{}
@@ -37,6 +39,15 @@
 \def\uni{University\\of Pisa} % University name
 \def\course{Example course title} % Course name
 \def\ay{2021/22} % Academic year
+
+\newcommand\setmscoptions{
+  % \setlength{\levelheight}{1.5 \levelheight}%
+  % \setlength{\instwidth}{3cm}
+  \setmsckeyword{}
+  \drawframe{no}
+  \centering
+}
+
 
 %% Start of document
 \begin{document}

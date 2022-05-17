@@ -1,2 +1,308 @@
 
 \section{Example section}
+
+\begin{figure}[!t]
+    \centering
+    \setlength{\instdist}{5cm}
+    \setmscoptions
+    \begin{msc}{}
+        \setmscscale{.8}
+
+        \declinst{client}{}{Client}
+        \declinst{server}{}{Server}
+
+        \action*{Knows $p, g, sk_C, pk_C$}{client}
+        \action*{\parbox{4.5cm}{\centering
+                Knows $p, g, sk_S, pk_S$\\
+                $pk_C, CERT_S$}}{server}
+        \nextlevel[2]
+
+        \action*{Generates $x$}{client}
+        \nextlevel[3]
+
+        \mess{$C, g^x$}{client}{server}
+        \nextlevel
+
+        \action*{Generates $y$}{server}
+        \nextlevel[3]
+        \mess{$S, g^y, CERT_S, \left\{g^x, g^y, C\right\}_{sk_S}$}{server}{client}
+        \nextlevel
+        \action*{\parbox{4.5cm}{\centering
+                Verifies certificate $CERT_S$\\
+                Verifies digital signature using $pk_S$ from $CERT_S$\\
+                Computes $K = (g^y)^x$
+            }}{client}
+
+        \nextlevel[6]
+        \mess{$\left\{g^y, g^x, S\right\}_{sk_C}$}{client}{server}
+        \nextlevel
+        \action*{\parbox{4.5cm}{\centering
+                Verifies digital signature and its content\\
+                Computes $K = (g^x)^y$
+            }}{server}
+
+        \nextlevel[4]
+    \end{msc}
+    \centering
+    \caption{Key agreement protocol with PFS (ISO/IEC IS 9798-3)}
+    \label{fig:key_agreement_protocol}
+\end{figure}
+
+
+\begin{figure}
+    \centering
+    \begin{bytefield}[bitwidth=0.5em]{64}
+        \bitheader[]{64, 56, 48, 40, 32, 24, 16, 8, 0} \\
+        \bitbox{8}{Type}
+        \bitbox{56}{Payload length} \\
+        \wordbox[lrt]{1}{Payload} \\
+        \skippedwords \\
+        \wordbox[lrb]{1}{}
+    \end{bytefield}
+    \caption{General message format}
+\end{figure}
+
+\begin{figure}[!t]
+    \centering
+    \setlength{\instdist}{8.5cm}
+    \setmscoptions
+    \begin{msc}{}
+        \setmscscale{.8}
+
+        \declinst{client}{}{Client}
+        \declinst{server}{}{Server}
+
+        \action*{Knows $K, seq$}{client}
+        \action*{Knows $K, seq$}{server}
+
+        \nextlevel[2]
+        \action*{Requests upload of file $f$}{client}
+
+        \nextlevel[3]
+
+        \mess{$upload, E(f, K), Tag(upload \mid\mid seq \mid\mid f, K)$}{client}{server}
+
+        \nextlevel
+        \action*{Checks that $f$ can be uploaded}{server}
+
+        \nextlevel[3]
+        \mess{$upload\_ans, E(m_1, K), Tag(upload\_ans \mid\mid seq + 1 \mid\mid m_1, K)$}{server}{client}
+
+        \nextlevel
+        \action*{\parbox{4.5cm}{\centering
+                Checks server answer's\\
+                If positive, sends file content $fc$}}{client}
+        \nextlevel[5]
+
+        \mess{$upload\_file, E(fc, K), Tag(upload\_file, \mid\mid seq + 2 \mid\mid fc, K)$}{client}{server}
+
+        \nextlevel[2]
+        \action*{\parbox{4.5cm}{\centering
+                Saves the file\\
+                Sends result to client}}{server}
+
+        \nextlevel[4]
+        \mess{$upload\_res, E(m_2, K), Tag(upload\_res \mid\mid seq + 3 \mid\mid m_2, K)$}{server}{client}
+        \nextlevel
+    \end{msc}
+    \centering
+    \caption{File upload}
+    \label{fig:transport_protocol_file_upload}
+\end{figure}
+
+\begin{figure}[!t]
+    \centering
+    \setlength{\instdist}{8.5cm}
+    \setmscoptions
+    \begin{msc}{}
+        \setmscscale{.8}
+
+        \declinst{client}{}{Client}
+        \declinst{server}{}{Server}
+
+        \action*{Knows $K, seq$}{client}
+        \action*{Knows $K, seq$}{server}
+
+        \nextlevel[2]
+        \action*{Requests download of file $f$}{client}
+
+        \nextlevel[3]
+        \mess{$download, E(f, K), Tag(download \mid\mid seq \mid\mid f, K)$}{client}{server}
+
+        \nextlevel
+        \action*{\parbox{4.5cm}{\centering
+                Checks that $f$ can be downloaded\\
+                Sends $f$ content $fc$}}{server}
+
+        \nextlevel[5]
+        \mess{$download\_ans, E(fc, K), Tag(download\_ans \mid\mid seq + 1 \mid\mid fc, K)$}{server}{client}
+
+        \nextlevel
+    \end{msc}
+    \centering
+    \caption{File download}
+    \label{fig:transport_protocol_file_download}
+\end{figure}
+
+\begin{figure}[!t]
+    \centering
+    \setlength{\instdist}{8.5cm}
+    \setmscoptions
+    \begin{msc}{}
+        \setmscscale{.8}
+
+        \declinst{client}{}{Client}
+        \declinst{server}{}{Server}
+
+        \action*{Knows $K, seq$}{client}
+        \action*{Knows $K, seq$}{server}
+
+        \nextlevel[2]
+        \action*{Requests deletion of file $f$}{client}
+
+        \nextlevel[3]
+
+        \mess{$delete, E(f, K), Tag(delete \mid\mid seq \mid\mid f, K)$}{client}{server}
+
+        \nextlevel
+        \action*{\parbox{6cm}{\centering
+                Checks that $f$ can be deleted\\
+                Prompts user for confirmation}}{server}
+
+        \nextlevel[4]
+        \mess{$delete\_conf, E(m_1, K), Tag(delete\_conf \mid\mid seq + 1 \mid\mid m_1, K)$}{server}{client}
+
+        \nextlevel
+        \action*{Confirms or aborts deletion}{client}
+        \nextlevel[5]
+
+        \mess{$delete\_ans, Tag(delete\_ans \mid\mid seq + 2, K)$}{client}{server}
+
+        \nextlevel[2]
+        \action*{\parbox{4.5cm}{\centering
+                Deletes the file\\
+                Sends result to client}}{server}
+
+        \nextlevel[4]
+        \mess{$delete\_res, E(m_2, K), Tag(delete\_res \mid\mid seq + 3 \mid\mid m_2, K)$}{server}{client}
+        \nextlevel
+    \end{msc}
+    \centering
+    \caption{File delete}
+    \label{fig:transport_protocol_file_delete}
+\end{figure}
+
+\begin{figure}[!t]
+    \centering
+    \setlength{\instdist}{8.5cm}
+    \setmscoptions
+    \begin{msc}{}
+        \setmscscale{.8}
+
+        \declinst{client}{}{Client}
+        \declinst{server}{}{Server}
+
+        \action*{Knows $K, seq$}{client}
+        \action*{Knows $K, seq$}{server}
+
+        \nextlevel[2]
+        \action*{Requests listing of files}{client}
+
+        \nextlevel[3]
+        \mess{$list, Tag(list \mid\mid seq, K)$}{client}{server}
+
+        \nextlevel
+        \action*{Gets list of files $fl$}{server}
+
+        \nextlevel[3]
+        \mess{$list\_ans, E(fl, K), Tag(list\_ans \mid\mid seq + 1 \mid\mid fl, K)$}{server}{client}
+
+        \nextlevel
+    \end{msc}
+    \centering
+    \caption{File listing}
+    \label{fig:transport_protocol_file_listing}
+\end{figure}
+
+\begin{figure}[!t]
+    \centering
+    \setlength{\instdist}{8.5cm}
+    \setmscoptions
+    \begin{msc}{}
+        \setmscscale{.8}
+
+        \declinst{client}{}{Client}
+        \declinst{server}{}{Server}
+
+        \action*{Knows $K, seq$}{client}
+        \action*{Knows $K, seq$}{server}
+
+        \nextlevel[2]
+        \action*{\parbox{7cm}{\centering
+                Requests rename of file from $f_{old}$ to $f_{new}$ \\
+                Let $m_1 = f_{old} \mid\mid f_{new}$}}{client}
+
+        \nextlevel[4]
+        \mess{$rename, E(m_1, K), Tag(rename \mid\mid seq \mid\mid m_1, K)$}{client}{server}
+
+        \nextlevel
+        \action*{\parbox{7cm}{\centering
+                Checks that $f_{old}$ can be renamed to $f_{new}$\\
+                Sends result to client
+            }}{server}
+
+        \nextlevel[4]
+        \mess{$rename\_ans, E(m_2, K), Tag(rename\_ans \mid\mid seq + 1 \mid\mid m_2, K)$}{server}{client}
+
+        \nextlevel
+    \end{msc}
+    \centering
+    \caption{File rename}
+    \label{fig:transport_protocol_file_rename}
+\end{figure}
+
+\begin{figure}[!t]
+    \centering
+    \setlength{\instdist}{8.5cm}
+    \setmscoptions
+    \begin{msc}{}
+        \setmscscale{.8}
+
+        \declinst{client}{}{Client}
+        \declinst{server}{}{Server}
+
+        \action*{Knows $K, seq$}{client}
+        \action*{Knows $K, seq$}{server}
+
+        \nextlevel[2]
+        \action*{Requests graceful logout}{client}
+
+        \nextlevel[3]
+        \mess{$logout, Tag(logout \mid\mid seq, K)$}{client}{server}
+
+        \nextlevel
+        \action*{Gracefully closes current session}{server}
+
+        \nextlevel[3]
+        \mess{$logout\_ans, Tag(logout\_ans \mid\mid seq + 1, K)$}{server}{client}
+
+        \nextlevel
+    \end{msc}
+    \centering
+    \caption{Log out}
+    \label{fig:transport_protocol_log_out}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \begin{bytefield}[bitwidth=0.5em]{64}
+        \bitheader[]{64, 56, 48, 40, 32, 24, 16, 8, 0} \\
+        \bitbox{8}{Type}
+        \bitbox{56}{Payload length} \\
+        \wordbox{1}{Sequence number} \\
+        \wordbox[lrt]{1}{Payload} \\
+        \skippedwords \\
+        \wordbox[lrb]{1}{}
+    \end{bytefield}
+    \caption{Transport protocol}
+\end{figure}
