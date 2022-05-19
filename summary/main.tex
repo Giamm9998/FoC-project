@@ -7,6 +7,8 @@
 \usepackage{geometry}               % Margins
 \usepackage{titletoc}               % Table of contents
 \usepackage{authblk}                % Authors affiliations
+\usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{cleveref}               % Better references
 \usepackage{subcaption}             % Subfigures
 \usepackage{enumitem}               % Enumerates and itemizes control
@@ -16,7 +18,6 @@
 
 \pagestyle{fancy}
 \fancyhead{}
-\fancyfoot[LE,RO]{\thepage}
 \cfoot{} % get rid of the page number
 \renewcommand{\headrulewidth}{0pt}
 \renewcommand{\footrulewidth}{0pt}
@@ -40,6 +41,7 @@
 \def\course{Example course title} % Course name
 \def\ay{2021/22} % Academic year
 
+% MSC sequence diagrams default options
 \newcommand\setmscoptions{
   % \setlength{\levelheight}{1.5 \levelheight}%
   % \setlength{\instwidth}{3cm}
@@ -48,6 +50,10 @@
   \centering
 }
 
+% Colors
+\definecolor{lightcyan}{rgb}{0.84,1,1}
+\definecolor{lightgreen}{rgb}{0.64,1,0.71}
+\definecolor{lightred}{rgb}{1,0.7,0.71}
 
 %% Start of document
 \begin{document}

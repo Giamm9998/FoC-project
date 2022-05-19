@@ -1,7 +1,7 @@
 
-\section{Example section}
+\section{Protocol and messages definition}
 
-\begin{figure}[!t]
+\begin{figure}
     \centering
     \setlength{\instdist}{5cm}
     \setmscoptions
@@ -30,7 +30,7 @@
         \action*{\parbox{4.5cm}{\centering
                 Verifies certificate $CERT_S$\\
                 Verifies digital signature using $pk_S$ from $CERT_S$\\
-                Computes $K = (g^y)^x$
+                Computes $K = h\left((g^y)^x\right)$
             }}{client}
 
         \nextlevel[6]
@@ -38,7 +38,7 @@
         \nextlevel
         \action*{\parbox{4.5cm}{\centering
                 Verifies digital signature and its content\\
-                Computes $K = (g^x)^y$
+                Computes $K = h\left((g^x)^y\right)$
             }}{server}
 
         \nextlevel[4]
@@ -62,7 +62,7 @@
     \caption{General message format}
 \end{figure}
 
-\begin{figure}[!t]
+\begin{figure}
     \centering
     \setlength{\instdist}{8.5cm}
     \setmscoptions
@@ -110,7 +110,7 @@
     \label{fig:transport_protocol_file_upload}
 \end{figure}
 
-\begin{figure}[!t]
+\begin{figure}
     \centering
     \setlength{\instdist}{8.5cm}
     \setmscoptions
@@ -144,7 +144,7 @@
     \label{fig:transport_protocol_file_download}
 \end{figure}
 
-\begin{figure}[!t]
+\begin{figure}
     \centering
     \setlength{\instdist}{8.5cm}
     \setmscoptions
@@ -192,7 +192,7 @@
     \label{fig:transport_protocol_file_delete}
 \end{figure}
 
-\begin{figure}[!t]
+\begin{figure}
     \centering
     \setlength{\instdist}{8.5cm}
     \setmscoptions
@@ -224,7 +224,7 @@
     \label{fig:transport_protocol_file_listing}
 \end{figure}
 
-\begin{figure}[!t]
+\begin{figure}
     \centering
     \setlength{\instdist}{8.5cm}
     \setmscoptions
@@ -261,7 +261,7 @@
     \label{fig:transport_protocol_file_rename}
 \end{figure}
 
-\begin{figure}[!t]
+\begin{figure}
     \centering
     \setlength{\instdist}{8.5cm}
     \setmscoptions
@@ -287,6 +287,8 @@
         \mess{$logout\_ans, Tag(logout\_ans \mid\mid seq + 1, K)$}{server}{client}
 
         \nextlevel
+        \action*{Gracefully closes current session}{client}
+        \nextlevel[2]
     \end{msc}
     \centering
     \caption{Log out}
@@ -297,12 +299,16 @@
     \centering
     \begin{bytefield}[bitwidth=0.5em]{64}
         \bitheader[]{64, 56, 48, 40, 32, 24, 16, 8, 0} \\
-        \bitbox{8}{Type}
+        \bitbox{8}[bgcolor=lightgreen]{Type}
         \bitbox{56}{Payload length} \\
-        \wordbox{1}{Sequence number} \\
-        \wordbox[lrt]{1}{Payload} \\
-        \skippedwords \\
-        \wordbox[lrb]{1}{}
+        \wordbox{1}[bgcolor=lightgreen]{Sequence number} \\
+        \wordbox{7}[bgcolor=lightred]{Payload (variable length)}
     \end{bytefield}
     \caption{Transport protocol}
 \end{figure}
+
+Legend:
+\begin{itemize}
+    \item \fcolorbox{black}{lightgreen}{\rule{0pt}{6pt}\rule{6pt}{0pt}}\quad authenticated
+    \item \fcolorbox{black}{lightred}{\rule{0pt}{6pt}\rule{6pt}{0pt}}\quad encrypted and authenticated
+\end{itemize}
