@@ -1,6 +1,12 @@
 
 \section{Protocol and messages definition}
 
+Legend:
+\begin{itemize}
+    \item \fcolorbox{black}{lightgreen}{\rule{0pt}{6pt}\rule{6pt}{0pt}}\quad authenticated
+    \item \fcolorbox{black}{lightred}{\rule{0pt}{6pt}\rule{6pt}{0pt}}\quad encrypted and authenticated
+\end{itemize}
+
 \begin{figure}
     \centering
     \setlength{\instdist}{5cm}
@@ -80,13 +86,13 @@
 
         \nextlevel[3]
 
-        \mess{$upload, E(f, K), Tag(upload \mid\mid seq \mid\mid f, K)$}{client}{server}
+        \mess{$upload, E(f, K), Tag(upload \mid\mid seq, K)$}{client}{server}
 
         \nextlevel
         \action*{Checks that $f$ can be uploaded}{server}
 
         \nextlevel[3]
-        \mess{$upload\_ans, E(m_1, K), Tag(upload\_ans \mid\mid seq + 1 \mid\mid m_1, K)$}{server}{client}
+        \mess{$upload\_ans, E(m_1, K), Tag(upload\_ans \mid\mid seq + 1, K)$}{server}{client}
 
         \nextlevel
         \action*{\parbox{4.5cm}{\centering
@@ -94,15 +100,18 @@
                 If positive, sends file content $fc$}}{client}
         \nextlevel[5]
 
-        \mess{$upload\_file, E(fc, K), Tag(upload\_file, \mid\mid seq + 2 \mid\mid fc, K)$}{client}{server}
+        \mess{$upload\_chunk, E(fc_0, K), Tag(upload\_file \mid\mid seq + 2, K)$}{client}{server}
+        \nextlevel[2]
+        \mess{$\dots$}{client}{server}
+        \nextlevel[2]
+        \mess{$upload\_end, E(fc_i, K), Tag(upload\_file \mid\mid seq + 2 + i, K)$}{client}{server}
 
         \nextlevel[2]
         \action*{\parbox{4.5cm}{\centering
-                Saves the file\\
                 Sends result to client}}{server}
 
         \nextlevel[4]
-        \mess{$upload\_res, E(m_2, K), Tag(upload\_res \mid\mid seq + 3 \mid\mid m_2, K)$}{server}{client}
+        \mess{$upload\_res, E(m_2, K), Tag(upload\_res \mid\mid seq + 3, K)$}{server}{client}
         \nextlevel
     \end{msc}
     \centering
@@ -127,7 +136,7 @@
         \action*{Requests download of file $f$}{client}
 
         \nextlevel[3]
-        \mess{$download, E(f, K), Tag(download \mid\mid seq \mid\mid f, K)$}{client}{server}
+        \mess{$download, E(f, K), Tag(download \mid\mid seq, K)$}{client}{server}
 
         \nextlevel
         \action*{\parbox{4.5cm}{\centering
@@ -135,7 +144,11 @@
                 Sends $f$ content $fc$}}{server}
 
         \nextlevel[5]
-        \mess{$download\_ans, E(fc, K), Tag(download\_ans \mid\mid seq + 1 \mid\mid fc, K)$}{server}{client}
+        \mess{$download\_chunk, E(fc_0, K), Tag(download\_ans \mid\mid seq + 1, K)$}{server}{client}
+        \nextlevel[2]
+        \mess{$\dots$}{server}{client}
+        \nextlevel[2]
+        \mess{$download\_end, E(fc_i, K), Tag(download\_ans \mid\mid seq + 1 + i, K)$}{server}{client}
 
         \nextlevel
     \end{msc}
@@ -162,7 +175,7 @@
 
         \nextlevel[3]
 
-        \mess{$delete, E(f, K), Tag(delete \mid\mid seq \mid\mid f, K)$}{client}{server}
+        \mess{$delete, E(f, K), Tag(delete \mid\mid seq, K)$}{client}{server}
 
         \nextlevel
         \action*{\parbox{6cm}{\centering
@@ -170,13 +183,13 @@
                 Prompts user for confirmation}}{server}
 
         \nextlevel[4]
-        \mess{$delete\_conf, E(m_1, K), Tag(delete\_conf \mid\mid seq + 1 \mid\mid m_1, K)$}{server}{client}
+        \mess{$delete\_conf, E(m_1, K), Tag(delete\_conf \mid\mid seq + 1, K)$}{server}{client}
 
         \nextlevel
         \action*{Confirms or aborts deletion}{client}
         \nextlevel[5]
 
-        \mess{$delete\_ans, Tag(delete\_ans \mid\mid seq + 2, K)$}{client}{server}
+        \mess{$delete\_ans, E(dummy, K), Tag(delete\_ans \mid\mid seq + 2, K)$}{client}{server}
 
         \nextlevel[2]
         \action*{\parbox{4.5cm}{\centering
@@ -184,7 +197,7 @@
                 Sends result to client}}{server}
 
         \nextlevel[4]
-        \mess{$delete\_res, E(m_2, K), Tag(delete\_res \mid\mid seq + 3 \mid\mid m_2, K)$}{server}{client}
+        \mess{$delete\_res, E(m_2, K), Tag(delete\_res \mid\mid seq + 3, K)$}{server}{client}
         \nextlevel
     \end{msc}
     \centering
@@ -209,13 +222,13 @@
         \action*{Requests listing of files}{client}
 
         \nextlevel[3]
-        \mess{$list, Tag(list \mid\mid seq, K)$}{client}{server}
+        \mess{$list, E(dummy, K), Tag(list \mid\mid seq, K)$}{client}{server}
 
         \nextlevel
         \action*{Gets list of files $fl$}{server}
 
         \nextlevel[3]
-        \mess{$list\_ans, E(fl, K), Tag(list\_ans \mid\mid seq + 1 \mid\mid fl, K)$}{server}{client}
+        \mess{$list\_ans, E(fl, K), Tag(list\_ans \mid\mid seq + 1, K)$}{server}{client}
 
         \nextlevel
     \end{msc}
@@ -243,7 +256,7 @@
                 Let $m_1 = f_{old} \mid\mid f_{new}$}}{client}
 
         \nextlevel[4]
-        \mess{$rename, E(m_1, K), Tag(rename \mid\mid seq \mid\mid m_1, K)$}{client}{server}
+        \mess{$rename, E(m_1, K), Tag(rename \mid\mid seq, K)$}{client}{server}
 
         \nextlevel
         \action*{\parbox{7cm}{\centering
@@ -252,7 +265,7 @@
             }}{server}
 
         \nextlevel[4]
-        \mess{$rename\_ans, E(m_2, K), Tag(rename\_ans \mid\mid seq + 1 \mid\mid m_2, K)$}{server}{client}
+        \mess{$rename\_ans, E(m_2, K), Tag(rename\_ans \mid\mid seq + 1, K)$}{server}{client}
 
         \nextlevel
     \end{msc}
@@ -278,13 +291,13 @@
         \action*{Requests graceful logout}{client}
 
         \nextlevel[3]
-        \mess{$logout, Tag(logout \mid\mid seq, K)$}{client}{server}
+        \mess{$logout, E(dummy, K), Tag(logout \mid\mid seq, K)$}{client}{server}
 
         \nextlevel
         \action*{Gracefully closes current session}{server}
 
         \nextlevel[3]
-        \mess{$logout\_ans, Tag(logout\_ans \mid\mid seq + 1, K)$}{server}{client}
+        \mess{$logout\_ans, E(dummy, K), Tag(logout\_ans \mid\mid seq + 1, K)$}{server}{client}
 
         \nextlevel
         \action*{Gracefully closes current session}{client}
@@ -306,9 +319,3 @@
     \end{bytefield}
     \caption{Transport protocol}
 \end{figure}
-
-Legend:
-\begin{itemize}
-    \item \fcolorbox{black}{lightgreen}{\rule{0pt}{6pt}\rule{6pt}{0pt}}\quad authenticated
-    \item \fcolorbox{black}{lightred}{\rule{0pt}{6pt}\rule{6pt}{0pt}}\quad encrypted and authenticated
-\end{itemize}
