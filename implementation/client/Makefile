@@ -1,5 +1,6 @@
 CC=g++
 CFLAGS=-Wall -Wextra -ansi -pedantic -lcrypto
+LDFLAGS=
 SOURCES=client.cpp authentication.cpp ../common/utils.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 BINARY=client
@@ -18,7 +19,7 @@ endif
 all: $(SOURCES) $(BINARY)
 
 $(BINARY): $(OBJECTS)
-	$(CC) $(OBJECTS) $(CFLAGS) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJECTS) -o $@
 
 .cpp.o:
 	$(CC) $(CFLAGS) -c $< -o $@
