@@ -1,6 +1,5 @@
 CC=g++
 CFLAGS=-std=c++11 -Wall -Wextra -ansi -pedantic -lcrypto
-DEBUG_CFLAGS=
 SOURCES=server.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 BINARY=server
@@ -19,7 +18,7 @@ endif
 all: $(SOURCES) $(BINARY)
 
 $(BINARY): $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) -o $@
+	$(CC) $(OBJECTS) $(CFLAGS) -o $@
 
 .cpp.o:
 	$(CC) $(CFLAGS) -c $< -o $@
