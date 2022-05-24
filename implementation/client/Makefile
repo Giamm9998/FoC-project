@@ -18,7 +18,7 @@ endif
 all: $(SOURCES) $(BINARY)
 
 $(BINARY): $(OBJECTS)
-	$(CC) $(OBJECTS) $(CFLAGS)-o $@
+	$(CC) $(OBJECTS) $(CFLAGS) -o $@
 
 .cpp.o:
 	$(CC) $(CFLAGS) -c $< -o $@
