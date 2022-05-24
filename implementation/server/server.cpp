@@ -1,3 +1,4 @@
+#include "../common/types.h"
 #include "../common/utils.h"
 #include <csignal>
 #include <iostream>
@@ -8,7 +9,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <wait.h>
-#define PORT 8081
+
+#define PORT 8080
 
 using namespace std;
 
@@ -32,11 +34,9 @@ void sigint_handler(int signum) {
 
 /* Server loop for the client to send requests to the server */
 void serve_client(int client_fd) {
-    char test[] = "Hello from server!";
-    char buffer[1024] = {0};
-    write(client_fd, test, sizeof(test));
-    read(client_fd, buffer, sizeof(buffer));
-    cout << "From client: " << buffer << endl;
+    mtype t = get_mtype(client_fd);
+    mlen len = get_mlen(client_fd);
+    cout << "mtype: " << t << endl << "mlen: " << len << endl;
 }
 
 int main() {

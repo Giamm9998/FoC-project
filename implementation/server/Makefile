@@ -1,6 +1,6 @@
 CC=g++
-CFLAGS=-std=c++11 -Wall -Wextra -ansi -pedantic -lcrypto
-SOURCES=server.cpp
+CFLAGS=-Wall -Wextra -ansi -pedantic -lcrypto -std=c++17
+SOURCES=server.cpp ../common/utils.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 BINARY=server
 

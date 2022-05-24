@@ -1,3 +1,4 @@
+#include "../common/types.h"
 #include "../common/utils.h"
 #include "authentication.h"
 #include <arpa/inet.h>
@@ -8,7 +9,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define PORT 8081
+#define PORT 8080
 #define ADDRESS "127.0.0.1"
 
 using namespace std;
@@ -54,6 +55,8 @@ void interact() {
 #ifdef DEBUG
     print_shared_key(shared_key, key_len);
 #endif
+
+    send_header(sock, AuthStart, 50);
 
     // Interaction loop. The user can perform a set of actions, until he decides
     // to terminate the session.
