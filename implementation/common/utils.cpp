@@ -49,29 +49,3 @@ void send_header(BIO *socket, mtype type, uchar *iv, int iv_len) {
         abort();
     };
 }
-
-void send_field(BIO *socket, flen len, void *data) {
-    if (BIO_write(socket, &len, sizeof(flen)) != sizeof(flen)) {
-        perror("Error when writing field length");
-        abort();
-    }
-    if (BIO_write(socket, data, len) != len) {
-        perror("Error when writing field data");
-        abort();
-    }
-}
-
-template <typename T> std::tuple<flen, T *> read_field(BIO *socket) {
-    flen len;
-    if (BIO_read(socket, &len, sizeof(flen)) != sizeof(flen)) {
-        perror("Error when reading field length");
-        abort();
-    }
-    T *res = (T *)malloc(len);
-    if (res == NULL) {
-        perror("Could not allocated memory");
-        abort();
-    }
-
-    return {len, res};
-}
