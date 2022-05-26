@@ -43,7 +43,8 @@ DH *get_dh2048(void) {
     return dh;
 }
 
-EVP_PKEY *get_dh_params() {
+EVP_PKEY *gen_keypair() {
+    // generate dh params p and g
     EVP_PKEY *dh_params;
     DH *tmp = get_dh2048();
     if (tmp == nullptr)
@@ -54,18 +55,15 @@ EVP_PKEY *get_dh_params() {
     if (EVP_PKEY_set1_DH(dh_params, tmp) != 1)
         handle_errors();
     DH_free(tmp);
-    return dh_params;
-}
 
-EVP_PKEY *gen_priv_key() {
-    EVP_PKEY *dh_params = get_dh_params();
+    // generate private and public key
     EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(dh_params, NULL);
     if (ctx == nullptr)
         handle_errors();
-    EVP_PKEY *my_prvkey = NULL;
+    EVP_PKEY *keypair = NULL;
     if (EVP_PKEY_keygen_init(ctx) != 1)
         handle_errors();
-    if (EVP_PKEY_keygen(ctx, &my_prvkey) != 1)
+    if (EVP_PKEY_keygen(ctx, &keypair) != 1)
         handle_errors();
-    return my_prvkey;
+    return keypair;
 }

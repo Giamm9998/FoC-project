@@ -11,5 +11,4 @@
  * successful. If the run failed, it aborts the program execution.
  */
 unsigned char *authenticate(BIO *socket, int key_len);
-void get_dh_pubkey(EVP_PKEY *priv_key);
 #endif
