@@ -39,7 +39,7 @@ void sigint_handler(int signum) {
 void serve_client(int client_fd) {
     int key_len;
     unsigned char *key;
-    BIO *socket = BIO_new_socket(client_fd, 0);
+    BIO *socket = BIO_new_socket(client_fd, BIO_NOCLOSE);
 
     key_len = get_symmetric_key_length();
     shared_key = authenticate(socket, key_len);

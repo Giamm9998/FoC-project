@@ -3,6 +3,7 @@
 #include "../common/errors.h"
 #include "../common/types.h"
 #include "../common/utils.h"
+#include <iostream>
 #include <new>
 #include <openssl/aes.h>
 #include <openssl/bio.h>
@@ -12,20 +13,21 @@
 #include <string>
 #include <tuple>
 
+using namespace std;
 // TODO!
 
 unsigned char *authenticate(BIO *socket, int key_len) {
     auto keypair = gen_keypair();
-    std::string name = "Rick Astley";
+    string name = "alice";
     EVP_PKEY *server_pubkey;
     X509 *certificate;
 
     // Authentication start
-    // send_header(socket, AuthStart);
-    send_field(socket, name.length(), name.c_str());
+    send_header(socket, AuthStart);
+    send_field(socket, name.length() + 1, name.c_str());
     PEM_write_bio_PUBKEY(socket, keypair);
 #ifdef DEBUG
-    std::cout << "Client pubkey:" << endl;
+    cout << "Client pubkey:" << endl;
     PEM_write_PUBKEY(stdout, keypair);
 #endif
 

@@ -49,7 +49,7 @@ void interact() {
     int key_len;
     BIO *socket;
 
-    if ((socket = BIO_new_socket(sock, 0)) == nullptr)
+    if ((socket = BIO_new_socket(sock, BIO_NOCLOSE)) == nullptr)
         handle_errors();
 
     key_len = get_symmetric_key_length();
