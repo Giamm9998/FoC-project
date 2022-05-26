@@ -15,6 +15,7 @@
 using namespace std;
 
 pid_t server = -1;
+unsigned char *shared_key;
 
 /* Handler for SIGINT. Gracefully shuts down the server by:
  *     - waiting for every child to terminate (we assume that child processes
@@ -34,9 +35,19 @@ void sigint_handler(int signum) {
 
 /* Server loop for the client to send requests to the server */
 void serve_client(int client_fd) {
-    mtype t = get_mtype(client_fd);
-    mlen len = get_mlen(client_fd);
-    cout << "mtype: " << t << endl << "mlen: " << len << endl;
+    int key_len;
+    unsigned char *key;
+
+    key_len = get_symmetric_key_length();
+    shared_key = authenticate(client_fd, key_len);
+#ifdef DEBUG
+    print_shared_key(shared_key, key_len);
+#endif
+    for (;;) {
+        mtype t = get_mtype(client_fd);
+        mlen len = get_mlen(client_fd);
+        cout << "mtype: " << t << endl << "mlen: " << len << endl;
+    }
 }
 
 int main() {
