@@ -1,4 +1,4 @@
-
+#include <openssl/evp.h>
 #ifndef authentication_h
 #define authentication_h
 /*
@@ -9,4 +9,5 @@
  * successful. If the run failed, it aborts the program execution.
  */
 unsigned char *authenticate(int fd, int key_len);
+void get_dh_pubkey(EVP_PKEY *priv_key);
 #endif

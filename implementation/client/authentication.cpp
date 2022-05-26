@@ -1,13 +1,23 @@
 #include "authentication.h"
+#include "../common/dhparams.h"
+#include "../common/errors.h"
+#include "../common/types.h"
+#include "../common/utils.h"
 #include <new>
 #include <openssl/aes.h>
 #include <openssl/evp.h>
-#include <string.h>
+#include <string>
 
 // TODO!
+void get_dh_pubkey(EVP_PKEY *priv_key) {}
+
 unsigned char *authenticate(int fd, int key_len) {
-    unsigned char *key;
-    key = new unsigned char[key_len];
-    memset(key, 0, key_len);
-    return key;
+    // generates x from dh params g and p
+    auto priv_key = gen_priv_key();
+    std::string name;
+
+    // get g^x
+    get_dh_pubkey(priv_key);
+
+    // send_header(sock,AuthStart,payload_len)
 }
