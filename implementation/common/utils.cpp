@@ -25,64 +25,64 @@ int get_symmetric_key_length() {
     return EVP_CIPHER_key_length(cipher);
 }
 
-mtype get_mtype(int sock) {
+mtype get_mtype(BIO *socket) {
     mtype res;
-    if (read(sock, &res, sizeof(mtype)) != sizeof(mtype)) {
+    if (BIO_read(socket, &res, sizeof(mtype)) != sizeof(mtype)) {
         perror("Error when reading mtype");
         abort();
     };
     return res;
 }
 
-mlen get_mlen(int sock) {
+mlen get_mlen(BIO *socket) {
     mlen res;
-    if (read(sock, &res, SIZEOF_MLEN) != SIZEOF_MLEN) {
+    if (BIO_read(socket, &res, SIZEOF_MLEN) != SIZEOF_MLEN) {
         perror("Error when reading mlen");
         abort();
     };
     return res;
 }
 
-void send_header(int sock, mtype type, mlen len) {
+void send_header(BIO *socket, mtype type, mlen len) {
     if (len > MLEN_MAX) {
         cerr << "Maximum size of message exceeded. Aborting." << endl;
         abort();
     }
 
-    if (write(sock, &type, sizeof(mtype)) != sizeof(mtype)) {
+    if (BIO_write(socket, &type, sizeof(mtype)) != sizeof(mtype)) {
         perror("Error when writing mtype");
         abort();
     };
 
-    if (write(sock, &len, SIZEOF_MLEN) != SIZEOF_MLEN) {
+    if (BIO_write(socket, &len, SIZEOF_MLEN) != SIZEOF_MLEN) {
         perror("Error when writing mtype");
         abort();
     };
 }
 
-void send_header(int sock, mtype type, mlen len, uchar *iv, int iv_len) {
-    send_header(sock, type, len);
+void send_header(BIO *socket, mtype type, mlen len, uchar *iv, int iv_len) {
+    send_header(socket, type, len);
 
-    if (write(sock, iv, iv_len) != iv_len) {
+    if (BIO_write(socket, iv, iv_len) != iv_len) {
         perror("Error when writing iv");
         abort();
     };
 }
 
-void send_field(int sock, flen len, void *data) {
-    if (write(sock, &len, sizeof(flen)) != sizeof(flen)) {
+void send_field(BIO *socket, flen len, void *data) {
+    if (BIO_write(socket, &len, sizeof(flen)) != sizeof(flen)) {
         perror("Error when writing field length");
         abort();
     }
-    if (write(sock, data, len) != len) {
+    if (BIO_write(socket, data, len) != len) {
         perror("Error when writing field data");
         abort();
     }
 }
 
-template <typename T> std::tuple<flen, T *> read_field(int sock) {
+template <typename T> std::tuple<flen, T *> read_field(BIO *socket) {
     flen len;
-    if (read(sock, &len, sizeof(flen)) != sizeof(flen)) {
+    if (BIO_read(socket, &len, sizeof(flen)) != sizeof(flen)) {
         perror("Error when reading field length");
         abort();
     }

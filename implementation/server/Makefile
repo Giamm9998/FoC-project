@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-Wall -Wextra -ansi -pedantic -lcrypto -std=c++17
-SOURCES=server.cpp ../common/utils.cpp
+SOURCES=server.cpp authentication.cpp ../common/utils.cpp ../common/errors.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 BINARY=server
 

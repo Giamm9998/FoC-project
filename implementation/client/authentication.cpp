@@ -7,11 +7,12 @@
 #include <openssl/aes.h>
 #include <openssl/evp.h>
 #include <string>
+#include <openssl/bio.h>
 
 // TODO!
 void get_dh_pubkey(EVP_PKEY *priv_key) {}
 
-unsigned char *authenticate(int fd, int key_len) {
+unsigned char *authenticate(BIO* socket, int key_len) {
     // generates x from dh params g and p
     auto priv_key = gen_priv_key();
     std::string name;

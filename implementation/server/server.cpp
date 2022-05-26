@@ -1,8 +1,10 @@
 #include "../common/types.h"
 #include "../common/utils.h"
+#include "authentication.h"
 #include <csignal>
 #include <iostream>
 #include <netinet/in.h>
+#include <openssl/bio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,15 +39,18 @@ void sigint_handler(int signum) {
 void serve_client(int client_fd) {
     int key_len;
     unsigned char *key;
+    BIO *socket = BIO_new_socket(client_fd, 0);
 
     key_len = get_symmetric_key_length();
-    shared_key = authenticate(client_fd, key_len);
+    shared_key = authenticate(socket, key_len);
 #ifdef DEBUG
     print_shared_key(shared_key, key_len);
 #endif
+
+    // Server loop
     for (;;) {
-        mtype t = get_mtype(client_fd);
-        mlen len = get_mlen(client_fd);
+        mtype t = get_mtype(socket);
+        mlen len = get_mlen(socket);
         cout << "mtype: " << t << endl << "mlen: " << len << endl;
     }
 }

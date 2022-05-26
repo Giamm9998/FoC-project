@@ -1,8 +1,10 @@
+#include "../common/errors.h"
 #include "../common/types.h"
 #include "../common/utils.h"
 #include "authentication.h"
 #include <arpa/inet.h>
 #include <iostream>
+#include <openssl/bio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,18 +47,22 @@ void interact() {
     unsigned char *key;
     string action;
     int key_len;
+    BIO *socket;
+
+    if ((socket = BIO_new_socket(sock, 0)) == nullptr)
+        handle_errors();
 
     key_len = get_symmetric_key_length();
 
     // First of all, the user must run the authentication protocol with the
     // other party (hopefully the server). The exchange also provides a shared
     // ephemeral key to use for further communications.
-    shared_key = authenticate(sock, key_len);
+    shared_key = authenticate(socket, key_len);
 #ifdef DEBUG
     print_shared_key(shared_key, key_len);
 #endif
 
-    send_header(sock, AuthStart, 50);
+    send_header(socket, AuthStart, 50);
 
     // Interaction loop. The user can perform a set of actions, until he decides
     // to terminate the session.
