@@ -38,11 +38,7 @@ template <typename T> tuple<flen, T *> read_field(BIO *socket) {
         perror("Error when reading field length");
         abort();
     }
-    T *res = (T *)malloc(len);
-    if (res == NULL) {
-        perror("Could not allocated memory");
-        abort();
-    }
+    T *res = new T[len];
 
     if (BIO_read(socket, res, len) != len) {
         perror("Error when reading field");
