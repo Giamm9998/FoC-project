@@ -49,9 +49,7 @@ void serve_client(int client_fd) {
 
     // Server loop
     for (;;) {
-        mtype t = get_mtype(socket);
-        mlen len = get_mlen(socket);
-        cout << "mtype: " << t << endl << "mlen: " << len << endl;
+        exit(0);
     }
 }
 

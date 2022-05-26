@@ -62,8 +62,6 @@ void interact() {
     print_shared_key(shared_key, key_len);
 #endif
 
-    send_header(socket, AuthStart, 50);
-
     // Interaction loop. The user can perform a set of actions, until he decides
     // to terminate the session.
     while (true) {

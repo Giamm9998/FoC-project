@@ -3,14 +3,11 @@
 
 typedef unsigned char uchar;
 typedef unsigned short ushort;
+typedef unsigned int uint;
 
-typedef unsigned char mtype;
-typedef unsigned int mlen;
-typedef unsigned int seqnum;
+typedef char mtype;
+typedef uint seqnum;
 typedef ushort flen;
-
-#define SIZEOF_MLEN 3
-#define MLEN_MAX ((1 << (SIZEOF_MLEN * 8)) - 1)
 
 enum mtypes {
     // Authentication

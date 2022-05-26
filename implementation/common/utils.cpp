@@ -34,34 +34,15 @@ mtype get_mtype(BIO *socket) {
     return res;
 }
 
-mlen get_mlen(BIO *socket) {
-    mlen res;
-    if (BIO_read(socket, &res, SIZEOF_MLEN) != SIZEOF_MLEN) {
-        perror("Error when reading mlen");
-        abort();
-    };
-    return res;
-}
-
-void send_header(BIO *socket, mtype type, mlen len) {
-    if (len > MLEN_MAX) {
-        cerr << "Maximum size of message exceeded. Aborting." << endl;
-        abort();
-    }
-
+void send_header(BIO *socket, mtype type) {
     if (BIO_write(socket, &type, sizeof(mtype)) != sizeof(mtype)) {
         perror("Error when writing mtype");
         abort();
     };
-
-    if (BIO_write(socket, &len, SIZEOF_MLEN) != SIZEOF_MLEN) {
-        perror("Error when writing mtype");
-        abort();
-    };
 }
 
-void send_header(BIO *socket, mtype type, mlen len, uchar *iv, int iv_len) {
-    send_header(socket, type, len);
+void send_header(BIO *socket, mtype type, uchar *iv, int iv_len) {
+    send_header(socket, type);
 
     if (BIO_write(socket, iv, iv_len) != iv_len) {
         perror("Error when writing iv");
