@@ -23,8 +23,19 @@ unsigned char *authenticate(BIO *socket, int key_len) {
     X509 *certificate;
 
     // Authentication start
-    send_header(socket, AuthStart);
-    send_field(socket, name.length() + 1, name.c_str());
+    auto send_res = send_header(socket, AuthStart);
+    if (send_res.is_error) {
+        cerr << send_res.error << endl;
+        // TODO: free stuff that needs to be freed
+        abort();
+    }
+
+    send_res = send_field(socket, name.length() + 1, name.c_str());
+    if (send_res.is_error) {
+        cerr << send_res.error << endl;
+        // TODO: free stuff that needs to be freed
+        abort();
+    }
     PEM_write_bio_PUBKEY(socket, keypair);
 #ifdef DEBUG
     cout << "Client pubkey:" << endl;
@@ -33,7 +44,13 @@ unsigned char *authenticate(BIO *socket, int key_len) {
 
     // Authentication server answer
     // read server name
-    auto [server_name_len, server_name] = read_field<char>(socket);
+    auto server_name_result = read_field<char>(socket);
+    if (server_name_result.is_error) {
+        cout << server_name_result.error << endl;
+        // TODO: free stuff that needs to be freed
+        abort();
+    }
+    auto [server_name_len, server_name] = server_name_result.result;
 
     // read g^y pubkey of server
     server_pubkey = PEM_read_bio_PUBKEY(socket, nullptr, nullptr, nullptr);
@@ -46,7 +63,13 @@ unsigned char *authenticate(BIO *socket, int key_len) {
         handle_errors();
 
     // read digital signature
-    auto [dsa_len, dsa] = read_field<uchar>(socket);
+    auto dsa_result = read_field<uchar>(socket);
+    if (dsa_result.is_error) {
+        cout << dsa_result.error << endl;
+        // TODO: free stuff that needs to be freed
+        abort();
+    }
+    auto [dsa_len, dsa] = dsa_result.result;
 
     // Verifies certificate
 

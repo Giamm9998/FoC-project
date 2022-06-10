@@ -15,6 +15,13 @@
 
 using namespace std;
 
+void free_user_keys(map<string, EVP_PKEY *> keys) {
+    for (auto it = keys.begin(); it != keys.end(); it++) {
+        EVP_PKEY_free(it->second);
+    }
+    keys.clear();
+}
+
 // Possible users of the server
 string users[2] = {"alice", "bob"};
 char server_name[] = "server";
@@ -42,9 +49,11 @@ static map<string, EVP_PKEY *> setup_keys() {
         // ... and read it as a public key
         if ((pubkey = PEM_read_PUBKEY(public_key_fp, nullptr, nullptr,
                                       nullptr)) == nullptr) {
-            user_map.clear();
+            free_user_keys(user_map);
             handle_errors();
         }
+
+        fclose(public_key_fp);
 
         // ... and save it into the list of users
         user_map.insert({user, pubkey});
@@ -65,18 +74,21 @@ unsigned char *authenticate(BIO *socket, int key_len) {
     auto user_keys = setup_keys();
 
     // Receive first client message
-    auto type = get_mtype(socket);
+    auto type_result = get_mtype(socket);
 
     // Check the correctness of the message type
-    if (type != AuthStart) {
-        cerr << "Incorrect message type" << endl;
-        user_keys.clear();
-        BIO_free(socket);
-        abort();
+    if (type_result.is_error || type_result.result != AuthStart) {
+        free_user_keys(user_keys);
+        throw "Incorrect message type";
     }
 
     // Read the username of the client
-    auto [username_len, username] = read_field<char>(socket);
+    auto username_result = read_field<char>(socket);
+    if (username_result.is_error) {
+        free_user_keys(user_keys);
+        throw username_result.error;
+    }
+    auto [username_len, username] = username_result.result;
 
 #ifdef DEBUG
     cout << "Username length: " << username_len << endl;
@@ -88,42 +100,49 @@ unsigned char *authenticate(BIO *socket, int key_len) {
     if (finder != user_keys.end()) {
         auto client_pubkey = finder->second;
     } else {
-        cerr << "User not registered!" << endl;
-        user_keys.clear();
-        BIO_free(socket);
-        abort();
+        free_user_keys(user_keys);
+        delete[] username;
+        username = nullptr;
+        throw "User not registered!";
     }
 
     // Load the client half key
     BIO *tmp_bio;
-    if ((tmp_bio = BIO_new(BIO_s_mem())) == NULL) {
-        user_keys.clear();
-        BIO_free(socket);
+    if ((tmp_bio = BIO_new(BIO_s_mem())) == nullptr) {
+        free_user_keys(user_keys);
+        delete[] username;
+        username = nullptr;
         handle_errors();
     }
 
     // Read client half key in PEM format
-    // TODO: this can fail too possibly, therefore we need to check for errors
-    // and free memory correctly!
-    // See
-    // https://stackoverflow.com/questions/3157098/whats-the-right-approach-to-return-error-codes-in-c
-    // for an elegant solution to the problem!
-    auto [client_half_key_len, client_half_key_bin] = read_field<uchar>(socket);
+    auto half_key_result = read_field<uchar>(socket);
+    if (half_key_result.is_error) {
+        free_user_keys(user_keys);
+        delete[] username;
+        username = nullptr;
+        BIO_free(tmp_bio);
+        throw half_key_result.error;
+    }
+    auto [client_half_key_len, client_half_key_bin] = half_key_result.result;
 
     // Write it to memory bio
     if (BIO_write(tmp_bio, client_half_key_bin, client_half_key_len) !=
         client_half_key_len) {
-        user_keys.clear();
-        BIO_free(socket);
+        free_user_keys(user_keys);
+        delete[] username;
+        username = nullptr;
         BIO_free(tmp_bio);
         handle_errors();
     }
 
     // ... and extract it as the client half key
-    auto client_half_key = PEM_read_bio_PUBKEY(tmp_bio, NULL, NULL, NULL);
-    if (client_half_key == NULL) {
-        user_keys.clear();
-        BIO_free(socket);
+    auto client_half_key =
+        PEM_read_bio_PUBKEY(tmp_bio, nullptr, nullptr, nullptr);
+    if (client_half_key == nullptr) {
+        free_user_keys(user_keys);
+        delete[] username;
+        username = nullptr;
         BIO_free(tmp_bio);
         handle_errors();
     }
@@ -134,7 +153,15 @@ unsigned char *authenticate(BIO *socket, int key_len) {
 #endif
 
     // Send server name ("server")
-    send_field(socket, sizeof(server_name), server_name);
+    auto res = send_field(socket, sizeof(server_name), server_name);
+    if (res.is_error) {
+        free_user_keys(user_keys);
+        delete[] username;
+        username = nullptr;
+        BIO_free(tmp_bio);
+        EVP_PKEY_free(client_half_key);
+        throw res.error;
+    }
 
     // Send server half key
 

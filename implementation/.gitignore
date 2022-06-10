@@ -3,3 +3,9 @@
 
 # Ignore every object file
 *.o
+
+# Ignore compile_commands.json (mainly used to ensure ccls behaves correctly)
+compile_commands.json
+
+# Ignore valgrind core dumps
+vgcore*

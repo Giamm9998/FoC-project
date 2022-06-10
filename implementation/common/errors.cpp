@@ -4,5 +4,5 @@
 
 void handle_errors() {
     ERR_print_errors_fp(stderr);
-    abort();
+    throw "OPENSSL error occurred";
 }

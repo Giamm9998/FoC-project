@@ -25,27 +25,34 @@ int get_symmetric_key_length() {
     return EVP_CIPHER_key_length(cipher);
 }
 
-mtype get_mtype(BIO *socket) {
-    mtype res;
-    if (BIO_read(socket, &res, sizeof(mtype)) != sizeof(mtype)) {
-        perror("Error when reading mtype");
-        abort();
+Maybe<mtype> get_mtype(BIO *socket) {
+    Maybe<mtype> res;
+    if (BIO_read(socket, &res.result, sizeof(mtype)) != sizeof(mtype)) {
+        res.set_error("Error when reading mtype");
     };
     return res;
 }
 
-void send_header(BIO *socket, mtype type) {
+Maybe<bool> send_header(BIO *socket, mtype type) {
+    Maybe<bool> res;
     if (BIO_write(socket, &type, sizeof(mtype)) != sizeof(mtype)) {
-        perror("Error when writing mtype");
-        abort();
-    };
+        res.set_error("Error when writing mtype");
+        return res;
+    }
+    res.set_result(true);
+    return res;
 }
 
-void send_header(BIO *socket, mtype type, uchar *iv, int iv_len) {
-    send_header(socket, type);
+Maybe<bool> send_header(BIO *socket, mtype type, uchar *iv, int iv_len) {
+    auto res = send_header(socket, type);
+    if (res.is_error) {
+        return res;
+    }
 
     if (BIO_write(socket, iv, iv_len) != iv_len) {
-        perror("Error when writing iv");
-        abort();
+        res.set_error("Error when writing iv");
+        return res;
     };
+    res.set_result(true);
+    return res;
 }
