@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-Wall -Wextra -ansi -pedantic -lcrypto -std=c++17
-SOURCES=server.cpp authentication.cpp ../common/utils.cpp ../common/errors.cpp
+SOURCES=server.cpp authentication.cpp ../common/utils.cpp ../common/dhparams.cpp ../common/errors.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 BINARY=server
 
@@ -8,7 +8,7 @@ BINARY=server
 # Defaults to zero (i.e. release)
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
-    CFLAGS += -DDEBUG -g
+    CFLAGS += -DDEBUG -g -ldl -export-dynamic
 else
     CFLAGS += -DNDEBUG -O3
 endif

@@ -44,26 +44,31 @@ void print_menu() {
 
 /* Loop for the user to interact with the server. */
 void interact() {
-    unsigned char *key;
     string action;
     int key_len;
-    BIO *socket;
-
-    if ((socket = BIO_new_socket(sock, BIO_NOCLOSE)) == nullptr)
-        handle_errors();
 
     key_len = get_symmetric_key_length();
 
     // First of all, the user must run the authentication protocol with the
     // other party (hopefully the server). The exchange also provides a shared
     // ephemeral key to use for further communications.
-    shared_key = authenticate(socket, key_len);
+    try {
+        shared_key = authenticate(sock, key_len);
+    } catch (char const *ex) {
+        cerr << "Authentication with the server failed";
+#ifdef DEBUG
+        cerr << " with \"" << ex << '"' << endl << "Exiting...";
+#endif
+        cerr << endl;
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
 #ifdef DEBUG
     print_shared_key(shared_key, key_len);
 #endif
 
-    // Interaction loop. The user can perform a set of actions, until he decides
-    // to terminate the session.
+    // Interaction loop. The user can perform a set of actions, until he
+    // decides to terminate the session.
     while (true) {
         print_menu();
         if (!getline(cin, action)) {

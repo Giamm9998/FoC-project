@@ -8,7 +8,7 @@ BINARY=client
 # Defaults to zero (i.e. release)
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
-    CFLAGS += -DDEBUG -g
+    CFLAGS += -DDEBUG -g -ldl -export-dynamic
 else
     CFLAGS += -DNDEBUG -O3
 endif

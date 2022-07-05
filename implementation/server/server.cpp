@@ -38,19 +38,18 @@ void sigint_handler(int signum) {
 /* Server loop for the client to send requests to the server */
 void serve_client(int client_fd) {
     int key_len;
-    BIO *socket = BIO_new_socket(client_fd, BIO_CLOSE);
 
     key_len = get_symmetric_key_length();
 
     try {
-        shared_key = authenticate(socket, key_len);
+        auto [username, shared_key] = authenticate(client_fd, key_len);
     } catch (char const *ex) {
         cerr << "Authentication of the client failed";
 #ifdef DEBUG
-        cerr << "with \"" << ex << '"' << endl << "Exiting...";
+        cerr << " with \"" << ex << '"' << endl << "Exiting...";
 #endif
         cerr << endl;
-        BIO_free(socket);
+        close(client_fd);
         exit(EXIT_FAILURE);
     }
 #ifdef DEBUG

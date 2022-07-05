@@ -8,6 +8,7 @@ typedef unsigned int uint;
 typedef char mtype;
 typedef uint seqnum;
 typedef ushort flen;
+#define FLEN_MAX ((1 << 16) - 1)
 
 enum mtypes {
     // Authentication

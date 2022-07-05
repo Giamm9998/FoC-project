@@ -1,4 +1,7 @@
 #include <openssl/bio.h>
+#include <tuple>
+
+using namespace std;
 
 #ifndef authentication_h
 #define authentication_h
@@ -9,5 +12,5 @@
  * Returns the key shared with the other party of len [key_len], if the run was
  * successful. If the run failed, it aborts the program execution.
  */
-unsigned char *authenticate(BIO *socket, int key_len);
+tuple<char *, unsigned char *> authenticate(int socket, int key_len);
 #endif
