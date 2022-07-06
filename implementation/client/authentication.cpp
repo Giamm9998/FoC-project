@@ -466,7 +466,8 @@ unsigned char *authenticate(int socket, int key_len) {
 
     // Open the client's private key file
     FILE *client_private_key_fp;
-    if ((client_private_key_fp = fopen("certificates/client.key", "r")) ==
+    string client_private_key_path = "certificates/" + username + ".key";
+    if ((client_private_key_fp = fopen(client_private_key_path.c_str(), "r")) ==
         nullptr) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);
@@ -488,7 +489,7 @@ unsigned char *authenticate(int socket, int key_len) {
         delete[] server_half_key_pem;
         EVP_MD_CTX_free(client_signature_ctx);
         fclose(client_private_key_fp);
-        handle_errors("Could not read server's private key");
+        handle_errors("Could not read client's private key");
     }
     fclose(client_private_key_fp);
 
