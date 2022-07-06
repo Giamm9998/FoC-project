@@ -41,8 +41,9 @@ void serve_client(int client_fd) {
 
     key_len = get_symmetric_key_length();
 
+    tuple<char *, unsigned char *> auth_res;
     try {
-        auto [username, shared_key] = authenticate(client_fd, key_len);
+        auth_res = authenticate(client_fd, key_len);
     } catch (char const *ex) {
         cerr << "Authentication of the client failed";
 #ifdef DEBUG
@@ -52,13 +53,15 @@ void serve_client(int client_fd) {
         close(client_fd);
         exit(EXIT_FAILURE);
     }
+
+    auto [username, shared_key] = auth_res;
+
 #ifdef DEBUG
     print_shared_key(shared_key, key_len);
 #endif
 
     // Server loop
     for (;;) {
-        exit(0);
     }
 }
 

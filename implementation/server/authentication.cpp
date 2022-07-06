@@ -436,8 +436,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     }
 
     EVP_MD_CTX_free(server_signature_ctx);
-    delete[] server_half_key_pem;
-    delete[] client_half_key_pem;
 
     if (server_signature_len > FLEN_MAX) {
         delete[] username;
@@ -461,6 +459,16 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     // ---------------------------------------------------------------------- //
     // -------------------- Client's response to Server --------------------- //
     // ---------------------------------------------------------------------- //
+
+    // Receive client header
+    auto client_header_res = get_mtype(socket);
+    if (client_header_res.is_error) {
+        delete[] username;
+        delete[] server_signature;
+        username = nullptr;
+        EVP_PKEY_free(client_half_key);
+        handle_errors(client_header_res.error);
+    }
 
     // TODO -> why not free_user_keys anymore? and keypair? server signature?
     // Receive client signature and check it

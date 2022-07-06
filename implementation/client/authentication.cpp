@@ -219,7 +219,7 @@ unsigned char *authenticate(int socket, int key_len) {
 
     // Write it to memory bio
     if (BIO_write(tmp_bio, server_half_key_pem, server_half_key_len) !=
-        client_half_key_len) {
+        server_half_key_len) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);
         delete[] client_half_key_pem;
