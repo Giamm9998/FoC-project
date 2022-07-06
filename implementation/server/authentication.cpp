@@ -109,8 +109,9 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
 
     // Check that it is registered on the server
     auto finder = user_keys.find(username);
+    EVP_PKEY *client_pubkey = nullptr;
     if (finder != user_keys.end()) {
-        auto client_pubkey = finder->second;
+        client_pubkey = finder->second;
     } else {
         free_user_keys(user_keys);
         delete[] username;
@@ -461,14 +462,108 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     // -------------------- Client's response to Server --------------------- //
     // ---------------------------------------------------------------------- //
 
+    // TODO -> why not free_user_keys anymore? and keypair? server signature?
     // Receive client signature and check it
-
-    // Compute shared secret and derive symmetric key
-    auto key_res =
-        kdf((unsigned char *)"placeholder", sizeof("placeholder"), key_len);
-    if (key_res.is_error) {
-        // TODO
-        handle_errors(key_res.error);
+    auto client_signature_res = read_field<unsigned char>(socket);
+    if (client_signature_res.is_error) {
+        delete[] username;
+        delete[] server_signature;
+        username = nullptr;
+        EVP_PKEY_free(client_half_key);
+        handle_errors(client_signature_res.error);
     }
-    return {username, key_res.result};
+
+    auto [client_signature_len, client_signature] = client_signature_res.result;
+
+    // Create and initialize the verification context
+    EVP_MD_CTX *client_signature_ctx;
+    if ((client_signature_ctx = EVP_MD_CTX_new()) == nullptr) {
+        delete[] username;
+        delete[] server_signature;
+        delete[] client_signature;
+        username = nullptr;
+        EVP_PKEY_free(client_half_key);
+        handle_errors("Signature verification failed (alloc)");
+    }
+
+    EVP_VerifyInit(client_signature_ctx, get_hash_type());
+
+    err = 0;
+    err |= EVP_VerifyUpdate(client_signature_ctx, server_half_key_pem,
+                            server_half_key_len);
+    err |= EVP_VerifyUpdate(client_signature_ctx, client_half_key_pem,
+                            client_half_key_len);
+    err |= EVP_VerifyUpdate(client_signature_ctx, server_name,
+                            sizeof(server_name));
+
+    if (err != 1) {
+        delete[] username;
+        delete[] server_signature;
+        delete[] client_signature;
+        username = nullptr;
+        EVP_PKEY_free(client_half_key);
+        EVP_MD_CTX_free(client_signature_ctx);
+        handle_errors("Signature verification failed (update)");
+    }
+
+    // TOASK -> user_keys[username] correct?
+    // Verify that the signature is correct
+    if (EVP_VerifyFinal(client_signature_ctx, client_signature,
+                        client_signature_len, client_pubkey) != 1) {
+        delete[] username;
+        delete[] server_signature;
+        delete[] client_signature;
+        username = nullptr;
+        EVP_PKEY_free(client_half_key);
+        EVP_MD_CTX_free(client_signature_ctx);
+        handle_errors("Signature verification failed (final)");
+    }
+    EVP_MD_CTX_free(client_signature_ctx);
+    delete[] client_signature;
+
+    // Computes shared secret
+    EVP_PKEY_CTX *shared_secret_ctx;
+    if ((shared_secret_ctx = EVP_PKEY_CTX_new(keypair, nullptr)) == nullptr) {
+        delete[] username;
+        delete[] server_signature;
+        username = nullptr;
+        EVP_PKEY_free(client_half_key);
+        handle_errors("Shared secret creation failed (alloc)");
+    }
+
+    err = 0;
+    err |= EVP_PKEY_derive_init(shared_secret_ctx);
+    err |= EVP_PKEY_derive_set_peer(shared_secret_ctx, client_half_key);
+
+    // Get the length of the shared secret
+    size_t shared_secret_len;
+    err |= EVP_PKEY_derive(shared_secret_ctx, NULL, &shared_secret_len);
+
+    // Compute the shared secret
+    unsigned char *shared_secret = new unsigned char[shared_secret_len];
+    err |=
+        EVP_PKEY_derive(shared_secret_ctx, shared_secret, &shared_secret_len);
+
+    if (err != 1) {
+        delete[] username;
+        delete[] server_signature;
+        username = nullptr;
+        EVP_PKEY_free(client_half_key);
+        EVP_PKEY_CTX_free(shared_secret_ctx);
+        handle_errors("Shared secret creation failed");
+    }
+    EVP_PKEY_free(client_half_key);
+    EVP_PKEY_CTX_free(shared_secret_ctx);
+
+    // Finally, derive the symmetric key from the shared secret
+    auto key_res = kdf(shared_secret, shared_secret_len, key_len);
+    if (key_res.is_error) {
+        delete[] username;
+        delete[] server_signature;
+        username = nullptr;
+        handle_errors("Shared secret creation failed");
+    }
+    auto key = key_res.result;
+
+    return {username, key};
 }
