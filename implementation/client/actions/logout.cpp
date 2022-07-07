@@ -102,8 +102,110 @@ void logout(int sock, unsigned char *key) {
         delete[] tag;
         handle_errors(tag_send_res.error);
     }
+    delete[] ct;
+    delete[] tag;
 
     // Manually increase sequence number without any check, otherwise we may
     // trigger the SIGUSR1 signal again
     seq_num++;
+
+    //------------------------------------------
+
+    // -----------receive client logout request-----------
+    auto server_header_res = read_header(sock);
+    if (server_header_res.is_error) {
+        handle_errors();
+    }
+    auto [mtype_res, seq, in_iv] = server_header_res.result;
+    iv = in_iv;
+
+    if (mtype_res != LogoutAns) {
+        delete[] iv;
+        handle_errors();
+    }
+
+    if (seq != seq_num) {
+        delete[] iv;
+        handle_errors("Incorrect sequence number");
+    }
+
+    auto ct_res = read_field<uchar>(sock);
+    if (ct_res.is_error) {
+        delete[] iv;
+        handle_errors("Incorrect message type");
+    }
+    auto ct_tuple = ct_res.result;
+    ct_len = get<0>(ct_tuple);
+    ct = get<1>(ct_tuple);
+
+    auto *pt = new unsigned char[sizeof(ct)];
+
+    auto tag_res = read_field<uchar>(sock);
+    if (tag_res.is_error) {
+        delete[] ct;
+        delete[] pt;
+        delete[] iv;
+        handle_errors("Incorrect message type");
+    }
+    tag = get<1>(tag_res.result);
+
+    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
+        delete[] iv;
+        delete[] ct;
+        delete[] tag;
+        delete[] pt;
+        handle_errors("Could not decrypt message (alloc)");
+    }
+
+    // Decrypt init
+    if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
+        delete[] iv;
+        delete[] ct;
+        delete[] tag;
+        delete[] pt;
+        EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
+    }
+
+    delete[] iv;
+
+    header = mtype_to_uc(mtype_res);
+
+    /* Zero or more calls to specify any AAD */
+    err = 0;
+    err |= EVP_DecryptUpdate(ctx, nullptr, &len, &header, sizeof(mtype));
+    err |=
+        EVP_DecryptUpdate(ctx, nullptr, &len, seqnum_to_uc(), sizeof(seqnum));
+
+    if (err != 1) {
+        delete[] ct;
+        delete[] tag;
+        delete[] pt;
+        EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
+    }
+
+    // Encrypt Update: one call is enough because our message is very short.
+    if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
+        delete[] ct;
+        delete[] tag;
+        delete[] pt;
+        EVP_CIPHER_CTX_free(ctx);
+    }
+
+    // GCM tag check
+    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
+
+    // Encrypt Final. Finalize the encryption and adds the padding
+    if (EVP_DecryptFinal(ctx, pt + len, &len) != 1) {
+        delete[] ct;
+        delete[] tag;
+        delete[] pt;
+        EVP_CIPHER_CTX_free(ctx);
+    }
+
+    // free context
+    EVP_CIPHER_CTX_free(ctx);
+
+    // END OF COMMUNICATION
 }

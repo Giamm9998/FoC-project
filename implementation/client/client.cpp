@@ -1,6 +1,7 @@
 #include "../common/errors.h"
 #include "../common/types.h"
 #include "../common/utils.h"
+#include "actions/logout.h"
 #include "authentication.h"
 #include <arpa/inet.h>
 #include <iostream>
@@ -21,10 +22,11 @@ int sock;
 unsigned char *shared_key;
 
 void signal_handler(int signum) {
+    logout(sock, shared_key);
     explicit_bzero(shared_key, get_symmetric_key_length());
     delete[] shared_key;
-    // gracefully_exit(server_fd, key);
-    exit(0);
+    close(sock);
+    exit(EXIT_SUCCESS);
 }
 
 void greet_user() {
@@ -62,6 +64,32 @@ void interact() {
     // ephemeral key to use for further communications.
     try {
         shared_key = authenticate(sock, key_len);
+#ifdef DEBUG
+        print_shared_key(shared_key, key_len);
+#endif
+
+        // Interaction loop. The user can perform a set of actions, until he
+        // decides to terminate the session.
+        for (;;) {
+            print_menu();
+            if (!getline(cin, action)) {
+                cout << "Error reading input!" << endl;
+            }
+
+            if (action == "list") {
+                // list_files(server_fd, key);
+            } else if (action == "upload") {
+                // upload_file(server_fd, key);
+            } else if (action == "rename") {
+                // rename_file(server_fd, key);
+            } else if (action == "delete") {
+                // delete_file(server_fd, key);
+            } else if (action == "exit") {
+                kill(getpid(), SIGUSR1);
+            } else {
+                cout << "Invalid action!" << endl;
+            }
+        }
     } catch (char const *ex) {
         cerr << "Authentication with the server failed";
 #ifdef DEBUG
@@ -70,32 +98,6 @@ void interact() {
         cerr << endl;
         close(sock);
         exit(EXIT_FAILURE);
-    }
-#ifdef DEBUG
-    print_shared_key(shared_key, key_len);
-#endif
-
-    // Interaction loop. The user can perform a set of actions, until he
-    // decides to terminate the session.
-    for (;;) {
-        print_menu();
-        if (!getline(cin, action)) {
-            cout << "Error reading input!" << endl;
-        }
-
-        if (action == "list") {
-            // list_files(server_fd, key);
-        } else if (action == "upload") {
-            // upload_file(server_fd, key);
-        } else if (action == "rename") {
-            // rename_file(server_fd, key);
-        } else if (action == "delete") {
-            // delete_file(server_fd, key);
-        } else if (action == "exit") {
-            // gracefully_exit(server_fd, key);
-        } else {
-            cout << "Invalid action!" << endl;
-        }
     }
 }
 

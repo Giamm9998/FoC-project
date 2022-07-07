@@ -110,8 +110,8 @@ Maybe<unsigned char *> get_dummy() {
     return res;
 }
 
-Maybe<mtype> get_mtype(int socket) {
-    Maybe<mtype> res;
+Maybe<mtypes> get_mtype(int socket) {
+    Maybe<mtypes> res;
     if (read(socket, &res.result, sizeof(mtype)) != sizeof(mtype)) {
         res.set_error("Error when reading mtype");
     };
@@ -145,5 +145,33 @@ Maybe<bool> send_header(int socket, mtype type, seqnum seq_num, uchar *iv,
         return res;
     };
     res.set_result(true);
+    return res;
+}
+
+unsigned char mtype_to_uc(mtypes m) { return (unsigned char)m; }
+
+Maybe<tuple<mtypes, seqnum, unsigned char *>> read_header(int socket) {
+    Maybe<tuple<mtypes, seqnum, unsigned char *>> res;
+
+    auto mtype_res = get_mtype(socket);
+    if (mtype_res.is_error) {
+        res.set_error(mtype_res.error);
+        return res;
+    }
+
+    seqnum seq;
+    if (read(socket, &seq, sizeof(seqnum)) != sizeof(seqnum)) {
+        res.set_error("Error when reading sequence number");
+        return res;
+    }
+
+    unsigned char *iv = new unsigned char[get_iv_len()];
+    if (read(socket, &iv, get_iv_len()) != get_iv_len()) {
+        delete[] iv;
+        res.set_error("Error when reading iv");
+        return res;
+    }
+
+    res.set_result({mtype_res.result, seq, iv});
     return res;
 }

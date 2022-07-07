@@ -1,5 +1,6 @@
 #include "../common/types.h"
 #include "../common/utils.h"
+#include "actions/logout.h"
 #include "authentication.h"
 #include <csignal>
 #include <iostream>
@@ -19,6 +20,7 @@ using namespace std;
 pid_t server = -1;
 int client_sock;
 unsigned char *shared_key;
+char *username;
 
 /* Handler for SIGINT. Gracefully shuts down the server by:
  *     - waiting for every child to terminate (we assume that child processes
@@ -34,7 +36,12 @@ void signal_handler(int signum) {
 
         exit(EXIT_SUCCESS);
     } else if (signum == SIGUSR1) {
-        // gracefully_exit();
+        logout(client_sock, shared_key);
+        delete[] username;
+        explicit_bzero(shared_key, get_symmetric_key_length());
+        delete[] shared_key;
+        close(client_sock);
+        exit(EXIT_SUCCESS);
     }
 }
 
@@ -57,7 +64,8 @@ void serve_client() {
         exit(EXIT_FAILURE);
     }
 
-    auto [username, shared_key] = auth_res;
+    username = get<0>(auth_res);
+    shared_key = get<1>(auth_res);
 
 #ifdef DEBUG
     print_shared_key(shared_key, key_len);
@@ -81,6 +89,7 @@ void serve_client() {
         case RenameReq:
             break;
         case LogoutReq:
+            kill(getpid(), SIGUSR1);
             break;
         default:
 #ifdef DEBUG
@@ -89,11 +98,6 @@ void serve_client() {
             break;
         }
     }
-
-    // TODO: free these when client exits
-    delete[] username;
-    explicit_bzero(shared_key, key_len);
-    delete[] shared_key;
 }
 
 int main() {

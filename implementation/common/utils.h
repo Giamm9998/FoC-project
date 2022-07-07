@@ -47,7 +47,7 @@ Maybe<unsigned char *> gen_iv();
 #define DUMMY_LEN 12
 Maybe<unsigned char *> get_dummy();
 
-Maybe<mtype> get_mtype(int socket);
+Maybe<mtypes> get_mtype(int socket);
 
 Maybe<bool> send_header(int socket, mtype type);
 Maybe<bool> send_header(int socket, mtype type, seqnum seq_num, uchar *iv,
@@ -86,5 +86,8 @@ template <typename T> Maybe<tuple<flen, T *>> read_field(int socket) {
     res.set_result({len, r});
     return res;
 }
+
+unsigned char mtype_to_uc(mtypes m);
+Maybe<tuple<mtypes, seqnum, unsigned char *>> read_header(int socket);
 
 #endif

@@ -53,6 +53,4 @@ enum mtypes {
     Error
 };
 
-unsigned char mtype_to_uc(mtypes m) { return (unsigned char)m; }
-
 #endif
