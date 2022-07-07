@@ -431,7 +431,7 @@ unsigned char *authenticate(int socket, int key_len) {
     // ---------------------------------------------------------------------- //
 
     // Send packet header
-    auto send_last_header_res = send_header(socket, AuthServerAns);
+    auto send_last_header_res = send_header(socket, AuthClientAns);
     if (send_last_header_res.is_error) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);

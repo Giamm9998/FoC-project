@@ -17,6 +17,11 @@ void print_shared_key(unsigned char *key, int len) {
     cout << endl;
 }
 
+void print_debug(unsigned char *x, int len) {
+    for (int i = 0; i < len; i++)
+        printf("%02x", (int)x[i]);
+}
+
 const EVP_CIPHER *get_symmetric_cipher() { return EVP_aes_256_gcm(); }
 int get_iv_len() { return EVP_CIPHER_iv_length(get_symmetric_cipher()); }
 int get_block_size() { return EVP_CIPHER_block_size(get_symmetric_cipher()); }
@@ -115,6 +120,12 @@ Maybe<mtypes> get_mtype(int socket) {
     if (read(socket, &res.result, sizeof(mtype)) != sizeof(mtype)) {
         res.set_error("Error when reading mtype");
     };
+
+#ifdef DEBUG
+    cout << endl << GREEN << "Message type: ";
+    print_debug((unsigned char *)&res.result, sizeof(mtype));
+    cout << RESET << endl;
+#endif
     return res;
 }
 
@@ -150,14 +161,8 @@ Maybe<bool> send_header(int socket, mtype type, seqnum seq_num, uchar *iv,
 
 unsigned char mtype_to_uc(mtypes m) { return (unsigned char)m; }
 
-Maybe<tuple<mtypes, seqnum, unsigned char *>> read_header(int socket) {
-    Maybe<tuple<mtypes, seqnum, unsigned char *>> res;
-
-    auto mtype_res = get_mtype(socket);
-    if (mtype_res.is_error) {
-        res.set_error(mtype_res.error);
-        return res;
-    }
+Maybe<tuple<seqnum, unsigned char *>> read_header(int socket) {
+    Maybe<tuple<seqnum, unsigned char *>> res;
 
     seqnum seq;
     if (read(socket, &seq, sizeof(seqnum)) != sizeof(seqnum)) {
@@ -165,13 +170,23 @@ Maybe<tuple<mtypes, seqnum, unsigned char *>> read_header(int socket) {
         return res;
     }
 
+#ifdef DEBUG
+    cout << GREEN << "Sequence number: " << seq << RESET << endl;
+#endif
+
     unsigned char *iv = new unsigned char[get_iv_len()];
-    if (read(socket, &iv, get_iv_len()) != get_iv_len()) {
+    if (read(socket, iv, get_iv_len()) != get_iv_len()) {
         delete[] iv;
         res.set_error("Error when reading iv");
         return res;
     }
 
-    res.set_result({mtype_res.result, seq, iv});
+#ifdef DEBUG
+    cout << GREEN << "IV: ";
+    print_debug(iv, get_iv_len());
+    cout << RESET << endl;
+#endif
+
+    res.set_result({seq, iv});
     return res;
 }

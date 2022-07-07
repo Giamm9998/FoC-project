@@ -27,6 +27,7 @@ char *username;
  *       will eventually terminate)
  */
 void signal_handler(int signum) {
+#ifdef NDEBUG
     if (server == getpid()) {
         cout << "Waiting for every child process to terminate... " << endl;
 
@@ -35,7 +36,10 @@ void signal_handler(int signum) {
         cout << "Bye!" << endl;
 
         exit(EXIT_SUCCESS);
-    } else if (signum == SIGUSR1) {
+    }
+#endif
+
+    if (signum == SIGUSR1) {
         logout(client_sock, shared_key);
         delete[] username;
         explicit_bzero(shared_key, get_symmetric_key_length());
@@ -54,6 +58,41 @@ void serve_client() {
     tuple<char *, unsigned char *> auth_res;
     try {
         auth_res = authenticate(client_sock, key_len);
+
+        username = get<0>(auth_res);
+        shared_key = get<1>(auth_res);
+
+#ifdef DEBUG
+        print_shared_key(shared_key, key_len);
+#endif
+
+        // Server loop
+        for (;;) {
+            auto header_res = get_mtype(client_sock);
+            if (header_res.is_error)
+                continue;
+
+            switch (header_res.result) {
+            case UploadReq:
+                break;
+            case DownloadReq:
+                break;
+            case DeleteReq:
+                break;
+            case ListReq:
+                break;
+            case RenameReq:
+                break;
+            case LogoutReq:
+                kill(getpid(), SIGUSR1);
+                break;
+            default:
+#ifdef DEBUG
+                cout << "Invalid header was received from client" << endl;
+#endif
+                break;
+            }
+        }
     } catch (char const *ex) {
         cerr << "Authentication of the client failed";
 #ifdef DEBUG
@@ -62,41 +101,6 @@ void serve_client() {
         cerr << endl;
         close(client_sock);
         exit(EXIT_FAILURE);
-    }
-
-    username = get<0>(auth_res);
-    shared_key = get<1>(auth_res);
-
-#ifdef DEBUG
-    print_shared_key(shared_key, key_len);
-#endif
-
-    // Server loop
-    for (;;) {
-        auto header_res = get_mtype(client_sock);
-        if (header_res.is_error)
-            continue;
-
-        switch (header_res.result) {
-        case UploadReq:
-            break;
-        case DownloadReq:
-            break;
-        case DeleteReq:
-            break;
-        case ListReq:
-            break;
-        case RenameReq:
-            break;
-        case LogoutReq:
-            kill(getpid(), SIGUSR1);
-            break;
-        default:
-#ifdef DEBUG
-            cout << "Invalid header was received from client" << endl;
-#endif
-            break;
-        }
     }
 }
 

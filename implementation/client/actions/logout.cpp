@@ -3,6 +3,7 @@
 #include "../../common/types.h"
 #include "../../common/utils.h"
 #include <openssl/evp.h>
+#include <sys/socket.h>
 
 void logout(int sock, unsigned char *key) {
 
@@ -109,20 +110,22 @@ void logout(int sock, unsigned char *key) {
     // trigger the SIGUSR1 signal again
     seq_num++;
 
+    shutdown(sock, SHUT_WR);
+
     //------------------------------------------
 
     // -----------receive client logout request-----------
+    auto mtype_res = get_mtype(sock);
+    if (mtype_res.is_error || mtype_res.result != LogoutAns) {
+        handle_errors();
+    }
+
     auto server_header_res = read_header(sock);
     if (server_header_res.is_error) {
         handle_errors();
     }
-    auto [mtype_res, seq, in_iv] = server_header_res.result;
+    auto [seq, in_iv] = server_header_res.result;
     iv = in_iv;
-
-    if (mtype_res != LogoutAns) {
-        delete[] iv;
-        handle_errors();
-    }
 
     if (seq != seq_num) {
         delete[] iv;
@@ -169,7 +172,7 @@ void logout(int sock, unsigned char *key) {
 
     delete[] iv;
 
-    header = mtype_to_uc(mtype_res);
+    header = mtype_to_uc(mtype_res.result);
 
     /* Zero or more calls to specify any AAD */
     err = 0;
@@ -206,6 +209,8 @@ void logout(int sock, unsigned char *key) {
 
     // free context
     EVP_CIPHER_CTX_free(ctx);
+
+    shutdown(sock, SHUT_RD);
 
     // END OF COMMUNICATION
 }

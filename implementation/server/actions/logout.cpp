@@ -3,6 +3,7 @@
 #include "../../common/types.h"
 #include "../../common/utils.h"
 #include <openssl/evp.h>
+#include <sys/socket.h>
 
 void logout(int sock, unsigned char *key) {
 
@@ -12,12 +13,7 @@ void logout(int sock, unsigned char *key) {
     if (server_header_res.is_error) {
         handle_errors();
     }
-    auto [mtype_res, seq, iv] = server_header_res.result;
-
-    if (mtype_res != LogoutReq) {
-        delete[] iv;
-        handle_errors();
-    }
+    auto [seq, iv] = server_header_res.result;
 
     if (seq != seq_num) {
         delete[] iv;
@@ -63,7 +59,7 @@ void logout(int sock, unsigned char *key) {
 
     delete[] iv;
 
-    unsigned char header = mtype_to_uc(mtype_res);
+    unsigned char header = mtype_to_uc(LogoutReq);
 
     /* Zero or more calls to specify any AAD */
     int err = 0;
@@ -102,6 +98,8 @@ void logout(int sock, unsigned char *key) {
     EVP_CIPHER_CTX_free(ctx);
 
     seq_num++;
+
+    shutdown(sock, SHUT_RD);
 
     //---------------------------------------------------------------------------------
     //---------------------------------------------------------------------------------
@@ -203,6 +201,8 @@ void logout(int sock, unsigned char *key) {
         delete[] tag;
         handle_errors(tag_send_res.error);
     }
+
+    shutdown(sock, SHUT_WR);
 
     // end of connection
 }

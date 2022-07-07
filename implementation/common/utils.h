@@ -1,5 +1,6 @@
 #include "maybe.h"
 #include "types.h"
+#include <iostream>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
@@ -12,9 +13,11 @@ using namespace std;
 #ifndef utils_h
 #define utils_h
 
-#ifdef DEBUG
+#define GREEN "\033[1;32m"
+#define RESET "\033[0m"
+
 void print_shared_key(unsigned char *key, int len);
-#endif
+void print_debug(unsigned char *x, int len);
 
 const EVP_CIPHER *get_symmetric_cipher();
 int get_symmetric_key_length();
@@ -75,6 +78,9 @@ template <typename T> Maybe<tuple<flen, T *>> read_field(int socket) {
         res.set_error("Error when reading field length");
         return res;
     }
+#ifdef DEBUG
+    cout << GREEN << "Field length: " << len << RESET << endl;
+#endif
     T *r = new T[len];
 
     if (read(socket, r, len) != len) {
@@ -83,11 +89,17 @@ template <typename T> Maybe<tuple<flen, T *>> read_field(int socket) {
         return res;
     }
 
+#ifdef DEBUG
+    cout << GREEN;
+    print_debug((unsigned char *)r, len);
+    cout << RESET;
+#endif
+
     res.set_result({len, r});
     return res;
 }
 
 unsigned char mtype_to_uc(mtypes m);
-Maybe<tuple<mtypes, seqnum, unsigned char *>> read_header(int socket);
+Maybe<tuple<seqnum, unsigned char *>> read_header(int socket);
 
 #endif

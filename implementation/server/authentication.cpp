@@ -468,7 +468,8 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
 
     // Receive client header
     auto client_header_res = get_mtype(socket);
-    if (client_header_res.is_error) {
+    if (client_header_res.is_error ||
+        client_header_res.result != AuthClientAns) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_half_key_pem;
@@ -527,7 +528,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         handle_errors("Signature verification failed (update)");
     }
 
-    // TOASK -> user_keys[username] correct?
     // Verify that the signature is correct
     if (EVP_VerifyFinal(client_signature_ctx, client_signature,
                         client_signature_len, client_pubkey) != 1) {
