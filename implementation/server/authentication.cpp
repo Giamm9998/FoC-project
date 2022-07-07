@@ -43,13 +43,14 @@ static map<string, EVP_PKEY *> setup_keys() {
         // Open the public key file
         if ((public_key_fp = fopen(user_key_path.c_str(), "r")) == nullptr) {
             user_map.clear();
-            perror("Cannot read user key");
-            abort();
+            fclose(public_key_fp);
+            handle_errors();
         }
 
         // ... and read it as a public key
         if ((pubkey = PEM_read_PUBKEY(public_key_fp, nullptr, 0, nullptr)) ==
             nullptr) {
+            fclose(public_key_fp);
             free_user_keys(user_map);
             handle_errors();
         }
@@ -115,7 +116,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     } else {
         free_user_keys(user_keys);
         delete[] username;
-        username = nullptr;
         handle_errors("User not registered!");
     }
 
@@ -124,7 +124,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     if ((tmp_bio = BIO_new(BIO_s_mem())) == nullptr) {
         free_user_keys(user_keys);
         delete[] username;
-        username = nullptr;
         handle_errors("Could not allocate memory bio");
     }
 
@@ -133,7 +132,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     if (half_key_result.is_error) {
         free_user_keys(user_keys);
         delete[] username;
-        username = nullptr;
         BIO_free(tmp_bio);
         handle_errors(half_key_result.error);
     }
@@ -145,7 +143,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_half_key_pem;
-        username = nullptr;
         BIO_free(tmp_bio);
         handle_errors("Could not write to memory bio");
     }
@@ -156,7 +153,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_half_key_pem;
-        username = nullptr;
         BIO_free(tmp_bio);
         handle_errors("Could not read from memory bio");
     }
@@ -178,7 +174,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_half_key_pem;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
         handle_errors(send_header_result.error);
     }
@@ -190,7 +185,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_half_key_pem;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
         handle_errors(send_server_name_res.error);
     }
@@ -204,7 +198,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_half_key_pem;
-        username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
         handle_errors("Could not write to memory bio");
@@ -218,7 +211,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_half_key_pem;
-        username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
@@ -237,7 +229,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_half_key_pem;
-        username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
@@ -258,7 +249,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_half_key_pem;
-        username = nullptr;
         delete[] server_half_key_pem;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
@@ -276,7 +266,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_half_key_pem;
-        username = nullptr;
         delete[] server_half_key_pem;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
@@ -292,7 +281,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] username;
         delete[] client_half_key_pem;
         delete[] server_half_key_pem;
-        username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
         fclose(server_certificate_fp);
@@ -308,12 +296,14 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] username;
         delete[] client_half_key_pem;
         delete[] server_half_key_pem;
-        username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
+        X509_free(server_certificate);
         handle_errors("Could not write to memory bio");
     }
+
+    X509_free(server_certificate);
 
     // Get the length and a pointer to the bio's memory data
     long server_certificate_len;
@@ -324,7 +314,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] username;
         delete[] client_half_key_pem;
         delete[] server_half_key_pem;
-        username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
@@ -338,7 +327,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] username;
         delete[] client_half_key_pem;
         delete[] server_half_key_pem;
-        username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
@@ -356,13 +344,12 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] username;
         delete[] client_half_key_pem;
         delete[] server_half_key_pem;
-        username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
         handle_errors(send_server_certificate_result.error);
     }
-    BIO_reset(tmp_bio);
+    BIO_free(tmp_bio);
 
     // Sign {g^x, g^y, C} with server's private key and send it
 
@@ -372,7 +359,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_half_key_pem;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
         handle_errors("Could not allocate signing context");
@@ -392,7 +378,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] username;
         delete[] client_half_key_pem;
         delete[] server_half_key_pem;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(server_signature_ctx);
         EVP_PKEY_free(keypair);
@@ -407,7 +392,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] username;
         delete[] client_half_key_pem;
         delete[] server_half_key_pem;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(server_signature_ctx);
         EVP_PKEY_free(keypair);
@@ -422,7 +406,6 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] username;
         delete[] client_half_key_pem;
         delete[] server_half_key_pem;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(server_signature_ctx);
         fclose(server_private_key_fp);
@@ -442,20 +425,22 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] client_half_key_pem;
         delete[] server_half_key_pem;
         delete[] server_signature;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(server_signature_ctx);
         EVP_PKEY_free(keypair);
+        EVP_PKEY_free(server_private_key);
         handle_errors("Could not sign correctly (final)");
     }
 
+    EVP_PKEY_free(server_private_key);
     EVP_MD_CTX_free(server_signature_ctx);
 
     if (server_signature_len > FLEN_MAX) {
         free_user_keys(user_keys);
         delete[] username;
+        delete[] client_half_key_pem;
+        delete[] server_half_key_pem;
         delete[] server_signature;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
         handle_errors(
@@ -467,8 +452,9 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     if (send_server_signature_result.is_error) {
         free_user_keys(user_keys);
         delete[] username;
+        delete[] client_half_key_pem;
+        delete[] server_half_key_pem;
         delete[] server_signature;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
         handle_errors(send_server_signature_result.error);
@@ -485,7 +471,8 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     if (client_header_res.is_error) {
         free_user_keys(user_keys);
         delete[] username;
-        username = nullptr;
+        delete[] client_half_key_pem;
+        delete[] server_half_key_pem;
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
         handle_errors(client_header_res.error);
@@ -496,7 +483,8 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     if (client_signature_res.is_error) {
         free_user_keys(user_keys);
         delete[] username;
-        username = nullptr;
+        delete[] client_half_key_pem;
+        delete[] server_half_key_pem;
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
         handle_errors(client_signature_res.error);
@@ -510,7 +498,8 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_signature;
-        username = nullptr;
+        delete[] client_half_key_pem;
+        delete[] server_half_key_pem;
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_free(keypair);
         handle_errors("Signature verification failed (alloc)");
@@ -530,7 +519,8 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_signature;
-        username = nullptr;
+        delete[] client_half_key_pem;
+        delete[] server_half_key_pem;
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(client_signature_ctx);
         EVP_PKEY_free(keypair);
@@ -544,12 +534,14 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         free_user_keys(user_keys);
         delete[] username;
         delete[] client_signature;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(client_signature_ctx);
         EVP_PKEY_free(keypair);
         handle_errors("Signature verification failed (final)");
     }
+
+    delete[] client_half_key_pem;
+    delete[] server_half_key_pem;
     EVP_MD_CTX_free(client_signature_ctx);
     delete[] client_signature;
 
@@ -558,9 +550,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     if ((shared_secret_ctx = EVP_PKEY_CTX_new(keypair, nullptr)) == nullptr) {
         free_user_keys(user_keys);
         delete[] username;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
-        EVP_PKEY_free(keypair);
         handle_errors("Shared secret creation failed (alloc)");
     }
 
@@ -580,12 +570,13 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     if (err != 1) {
         free_user_keys(user_keys);
         delete[] username;
-        username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_CTX_free(shared_secret_ctx);
-        EVP_PKEY_free(keypair);
         handle_errors("Shared secret creation failed");
     }
+
+    free_user_keys(user_keys);
+    EVP_PKEY_free(keypair);
     EVP_PKEY_free(client_half_key);
     EVP_PKEY_CTX_free(shared_secret_ctx);
 
@@ -594,10 +585,9 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     if (key_res.is_error) {
         free_user_keys(user_keys);
         delete[] username;
-        username = nullptr;
-        EVP_PKEY_free(keypair);
         handle_errors("Shared secret creation failed");
     }
+
     auto key = key_res.result;
 
     return {username, key};

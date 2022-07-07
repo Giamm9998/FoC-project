@@ -50,11 +50,15 @@ Maybe<unsigned char *> kdf(unsigned char *shared_secret, int shared_secret_len,
         EVP_DigestFinal(ctx, digest, &digest_len) != 1) {
         delete[] key;
         delete[] digest;
+        delete[] shared_secret;
+        explicit_bzero(shared_secret, shared_secret_len);
         EVP_MD_CTX_free(ctx);
         res.set_error("Could not create hashing context for kdf");
         return res;
     }
 
+    explicit_bzero(shared_secret, shared_secret_len);
+    delete[] shared_secret;
     EVP_MD_CTX_free(ctx);
 
     if (digest_len < key_len) {
@@ -66,6 +70,7 @@ Maybe<unsigned char *> kdf(unsigned char *shared_secret, int shared_secret_len,
     }
 
     memcpy(key, digest, key_len);
+    explicit_bzero(digest, digest_len);
     delete[] digest;
 
     res.set_result(key);

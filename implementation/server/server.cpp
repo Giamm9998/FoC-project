@@ -63,6 +63,11 @@ void serve_client(int client_fd) {
     // Server loop
     for (;;) {
     }
+
+    // TODO: free these when client exits
+    delete[] username;
+    explicit_bzero(shared_key, key_len);
+    delete[] shared_key;
 }
 
 int main() {

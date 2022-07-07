@@ -300,6 +300,7 @@ unsigned char *authenticate(int socket, int key_len) {
         delete[] server_name;
         delete[] server_half_key_pem;
         EVP_PKEY_free(server_half_key);
+        X509_free(server_certificate);
         handle_errors(server_pubkey_res.error);
     }
 
@@ -315,6 +316,7 @@ unsigned char *authenticate(int socket, int key_len) {
         delete[] server_name;
         delete[] server_half_key_pem;
         EVP_PKEY_free(server_half_key);
+        EVP_PKEY_free(server_pubkey);
         handle_errors(server_signature_res.error);
     }
 
@@ -330,6 +332,7 @@ unsigned char *authenticate(int socket, int key_len) {
         delete[] server_half_key_pem;
         EVP_PKEY_free(server_half_key);
         delete[] server_signature;
+        EVP_PKEY_free(server_pubkey);
         handle_errors("Signature verification failed (alloc)");
     }
 
@@ -352,6 +355,7 @@ unsigned char *authenticate(int socket, int key_len) {
         EVP_PKEY_free(server_half_key);
         delete[] server_signature;
         EVP_MD_CTX_free(server_signature_ctx);
+        EVP_PKEY_free(server_pubkey);
         handle_errors("Signature verification failed (update)");
     }
 
@@ -366,8 +370,11 @@ unsigned char *authenticate(int socket, int key_len) {
         EVP_PKEY_free(server_half_key);
         delete[] server_signature;
         EVP_MD_CTX_free(server_signature_ctx);
+        EVP_PKEY_free(server_pubkey);
         handle_errors("Signature verification failed (final)");
     }
+
+    EVP_PKEY_free(server_pubkey);
     EVP_MD_CTX_free(server_signature_ctx);
     delete[] server_signature;
 
@@ -507,9 +514,12 @@ unsigned char *authenticate(int socket, int key_len) {
         delete[] server_name;
         delete[] server_half_key_pem;
         delete[] client_signature;
+        EVP_PKEY_free(client_private_key);
         EVP_MD_CTX_free(client_signature_ctx);
         handle_errors("Could not sign correctly (final)");
     }
+
+    EVP_PKEY_free(client_private_key);
     EVP_MD_CTX_free(client_signature_ctx);
     delete[] server_half_key_pem;
     delete[] client_half_key_pem;

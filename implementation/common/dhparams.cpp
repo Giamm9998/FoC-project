@@ -30,40 +30,60 @@ DH *get_dh2048(void) {
     DH *dh = DH_new();
     BIGNUM *p, *g;
 
-    if (dh == NULL)
-        return NULL;
-    p = BN_bin2bn(dhp_2048, sizeof(dhp_2048), NULL);
-    g = BN_bin2bn(dhg_2048, sizeof(dhg_2048), NULL);
-    if (p == NULL || g == NULL || !DH_set0_pqg(dh, p, NULL, g)) {
+    if (dh == nullptr)
+        return nullptr;
+    p = BN_bin2bn(dhp_2048, sizeof(dhp_2048), nullptr);
+    g = BN_bin2bn(dhg_2048, sizeof(dhg_2048), nullptr);
+    if (p == nullptr || g == NULL || !DH_set0_pqg(dh, p, NULL, g)) {
         DH_free(dh);
         BN_free(p);
         BN_free(g);
-        return NULL;
+        return nullptr;
     }
     return dh;
 }
 
 EVP_PKEY *gen_keypair() {
     // generate dh params p and g
+    DH *tmp;
+    if ((tmp = get_dh2048()) == nullptr) {
+        handle_errors();
+    }
+
     EVP_PKEY *dh_params;
-    DH *tmp = get_dh2048();
-    if (tmp == nullptr)
+    if ((dh_params = EVP_PKEY_new()) == nullptr) {
+        DH_free(tmp);
         handle_errors();
-    dh_params = EVP_PKEY_new();
-    if (dh_params == nullptr)
+    }
+
+    if (EVP_PKEY_set1_DH(dh_params, tmp) != 1) {
+        DH_free(tmp);
+        EVP_PKEY_free(dh_params);
         handle_errors();
-    if (EVP_PKEY_set1_DH(dh_params, tmp) != 1)
-        handle_errors();
+    }
     DH_free(tmp);
 
     // generate private and public key
-    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(dh_params, NULL);
-    if (ctx == nullptr)
+    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(dh_params, nullptr);
+    if (ctx == nullptr) {
+        EVP_PKEY_free(dh_params);
         handle_errors();
-    EVP_PKEY *keypair = NULL;
-    if (EVP_PKEY_keygen_init(ctx) != 1)
+    }
+
+    EVP_PKEY *keypair = nullptr;
+    if (EVP_PKEY_keygen_init(ctx) != 1) {
+        EVP_PKEY_free(dh_params);
+        EVP_PKEY_CTX_free(ctx);
         handle_errors();
-    if (EVP_PKEY_keygen(ctx, &keypair) != 1)
+    }
+    if (EVP_PKEY_keygen(ctx, &keypair) != 1) {
+        EVP_PKEY_free(dh_params);
+        EVP_PKEY_CTX_free(ctx);
         handle_errors();
+    }
+
+    EVP_PKEY_free(dh_params);
+    EVP_PKEY_CTX_free(ctx);
+
     return keypair;
 }
