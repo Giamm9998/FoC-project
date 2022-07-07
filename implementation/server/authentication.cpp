@@ -221,6 +221,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors("Could not read from memory bio");
     }
 
@@ -239,6 +240,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors("Server's half key length is bigger than the maximum "
                       "field's length");
     }
@@ -260,6 +262,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] server_half_key_pem;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors(send_server_half_key_result.error);
     }
     BIO_reset(tmp_bio);
@@ -277,6 +280,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] server_half_key_pem;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors("Could not open server's certificate file");
     }
 
@@ -292,6 +296,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
         fclose(server_certificate_fp);
+        EVP_PKEY_free(keypair);
         handle_errors("Could not read X509 certificate from file");
     }
 
@@ -306,6 +311,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors("Could not write to memory bio");
     }
 
@@ -321,6 +327,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors("Could not read from memory bio");
     }
 
@@ -334,6 +341,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors("Server's certificate length is bigger than the maximum "
                       "field's length");
     }
@@ -351,6 +359,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         username = nullptr;
         BIO_free(tmp_bio);
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors(send_server_certificate_result.error);
     }
     BIO_reset(tmp_bio);
@@ -365,6 +374,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         delete[] client_half_key_pem;
         username = nullptr;
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors("Could not allocate signing context");
     }
     EVP_SignInit(server_signature_ctx, get_hash_type());
@@ -385,6 +395,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(server_signature_ctx);
+        EVP_PKEY_free(keypair);
         handle_errors("Could not sign correctly (update)");
     }
 
@@ -399,6 +410,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(server_signature_ctx);
+        EVP_PKEY_free(keypair);
         handle_errors("Could not open server's private key");
     }
 
@@ -414,6 +426,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(server_signature_ctx);
         fclose(server_private_key_fp);
+        EVP_PKEY_free(keypair);
         handle_errors("Could not read server's private key");
     }
     fclose(server_private_key_fp);
@@ -432,16 +445,19 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(server_signature_ctx);
+        EVP_PKEY_free(keypair);
         handle_errors("Could not sign correctly (final)");
     }
 
     EVP_MD_CTX_free(server_signature_ctx);
 
     if (server_signature_len > FLEN_MAX) {
+        free_user_keys(user_keys);
         delete[] username;
         delete[] server_signature;
         username = nullptr;
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors(
             "Server signature is bigger than the max packet field length");
     }
@@ -449,12 +465,16 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     auto send_server_signature_result =
         send_field(socket, (flen)server_signature_len, server_signature);
     if (send_server_signature_result.is_error) {
+        free_user_keys(user_keys);
         delete[] username;
         delete[] server_signature;
         username = nullptr;
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors(send_server_signature_result.error);
     }
+
+    delete[] server_signature;
 
     // ---------------------------------------------------------------------- //
     // -------------------- Client's response to Server --------------------- //
@@ -463,21 +483,22 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     // Receive client header
     auto client_header_res = get_mtype(socket);
     if (client_header_res.is_error) {
+        free_user_keys(user_keys);
         delete[] username;
-        delete[] server_signature;
         username = nullptr;
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors(client_header_res.error);
     }
 
-    // TODO -> why not free_user_keys anymore? and keypair? server signature?
     // Receive client signature and check it
     auto client_signature_res = read_field<unsigned char>(socket);
     if (client_signature_res.is_error) {
+        free_user_keys(user_keys);
         delete[] username;
-        delete[] server_signature;
         username = nullptr;
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors(client_signature_res.error);
     }
 
@@ -486,11 +507,12 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     // Create and initialize the verification context
     EVP_MD_CTX *client_signature_ctx;
     if ((client_signature_ctx = EVP_MD_CTX_new()) == nullptr) {
+        free_user_keys(user_keys);
         delete[] username;
-        delete[] server_signature;
         delete[] client_signature;
         username = nullptr;
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors("Signature verification failed (alloc)");
     }
 
@@ -505,12 +527,13 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
                             sizeof(server_name));
 
     if (err != 1) {
+        free_user_keys(user_keys);
         delete[] username;
-        delete[] server_signature;
         delete[] client_signature;
         username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(client_signature_ctx);
+        EVP_PKEY_free(keypair);
         handle_errors("Signature verification failed (update)");
     }
 
@@ -518,12 +541,13 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     // Verify that the signature is correct
     if (EVP_VerifyFinal(client_signature_ctx, client_signature,
                         client_signature_len, client_pubkey) != 1) {
+        free_user_keys(user_keys);
         delete[] username;
-        delete[] server_signature;
         delete[] client_signature;
         username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_MD_CTX_free(client_signature_ctx);
+        EVP_PKEY_free(keypair);
         handle_errors("Signature verification failed (final)");
     }
     EVP_MD_CTX_free(client_signature_ctx);
@@ -532,10 +556,11 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     // Computes shared secret
     EVP_PKEY_CTX *shared_secret_ctx;
     if ((shared_secret_ctx = EVP_PKEY_CTX_new(keypair, nullptr)) == nullptr) {
+        free_user_keys(user_keys);
         delete[] username;
-        delete[] server_signature;
         username = nullptr;
         EVP_PKEY_free(client_half_key);
+        EVP_PKEY_free(keypair);
         handle_errors("Shared secret creation failed (alloc)");
     }
 
@@ -553,11 +578,12 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
         EVP_PKEY_derive(shared_secret_ctx, shared_secret, &shared_secret_len);
 
     if (err != 1) {
+        free_user_keys(user_keys);
         delete[] username;
-        delete[] server_signature;
         username = nullptr;
         EVP_PKEY_free(client_half_key);
         EVP_PKEY_CTX_free(shared_secret_ctx);
+        EVP_PKEY_free(keypair);
         handle_errors("Shared secret creation failed");
     }
     EVP_PKEY_free(client_half_key);
@@ -566,9 +592,10 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     // Finally, derive the symmetric key from the shared secret
     auto key_res = kdf(shared_secret, shared_secret_len, key_len);
     if (key_res.is_error) {
+        free_user_keys(user_keys);
         delete[] username;
-        delete[] server_signature;
         username = nullptr;
+        EVP_PKEY_free(keypair);
         handle_errors("Shared secret creation failed");
     }
     auto key = key_res.result;
