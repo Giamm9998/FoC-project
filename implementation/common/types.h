@@ -9,6 +9,9 @@ typedef char mtype;
 typedef uint seqnum;
 typedef ushort flen;
 #define FLEN_MAX ((1 << 16) - 1)
+#define SEQNUM_MAX ((1UL << 32) - 1)
+
+#define TAG_LEN 16
 
 enum mtypes {
     // Authentication
@@ -49,5 +52,7 @@ enum mtypes {
     // Generic error
     Error
 };
+
+unsigned char mtype_to_uc(mtypes m) { return (unsigned char)m; }
 
 #endif

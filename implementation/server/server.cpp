@@ -17,13 +17,14 @@
 using namespace std;
 
 pid_t server = -1;
+int client_sock;
 unsigned char *shared_key;
 
 /* Handler for SIGINT. Gracefully shuts down the server by:
  *     - waiting for every child to terminate (we assume that child processes
  *       will eventually terminate)
  */
-void sigint_handler(int signum) {
+void signal_handler(int signum) {
     if (server == getpid()) {
         cout << "Waiting for every child process to terminate... " << endl;
 
@@ -32,25 +33,27 @@ void sigint_handler(int signum) {
         cout << "Bye!" << endl;
 
         exit(EXIT_SUCCESS);
+    } else if (signum == SIGUSR1) {
+        // gracefully_exit();
     }
 }
 
 /* Server loop for the client to send requests to the server */
-void serve_client(int client_fd) {
+void serve_client() {
     int key_len;
 
     key_len = get_symmetric_key_length();
 
     tuple<char *, unsigned char *> auth_res;
     try {
-        auth_res = authenticate(client_fd, key_len);
+        auth_res = authenticate(client_sock, key_len);
     } catch (char const *ex) {
         cerr << "Authentication of the client failed";
 #ifdef DEBUG
         cerr << " with \"" << ex << '"' << endl << "Exiting...";
 #endif
         cerr << endl;
-        close(client_fd);
+        close(client_sock);
         exit(EXIT_FAILURE);
     }
 
@@ -62,6 +65,29 @@ void serve_client(int client_fd) {
 
     // Server loop
     for (;;) {
+        auto header_res = get_mtype(client_sock);
+        if (header_res.is_error)
+            continue;
+
+        switch (header_res.result) {
+        case UploadReq:
+            break;
+        case DownloadReq:
+            break;
+        case DeleteReq:
+            break;
+        case ListReq:
+            break;
+        case RenameReq:
+            break;
+        case LogoutReq:
+            break;
+        default:
+#ifdef DEBUG
+            cout << "Invalid header was received from client" << endl;
+#endif
+            break;
+        }
     }
 
     // TODO: free these when client exits
@@ -79,7 +105,11 @@ int main() {
     server = getpid();
 
     // Register signal handler to gracefully close on SIGINT
-    signal(SIGINT, sigint_handler);
+    signal(SIGINT, signal_handler);
+
+    // Register signal handler to gracefully close on SIGUSR1 (before sequence
+    // number wraps)
+    signal(SIGUSR1, signal_handler);
 
     // Create socket file descriptor
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -121,7 +151,8 @@ int main() {
     // process to serve the client request. Should make debugging easier.
     if ((new_client = accept(sock, (struct sockaddr *)&address, &addr_len)) >=
         0) {
-        serve_client(new_client);
+        client_sock = new_client;
+        serve_client();
         // Close the file descriptor after we are done with it
         close(new_client);
         exit(EXIT_SUCCESS);
@@ -138,7 +169,8 @@ int main() {
             perror("Fork failed");
             exit(EXIT_FAILURE);
         } else if (res == 0) {
-            serve_client(new_client);
+            client_sock = new_client;
+            serve_client();
             // Close the file descriptor after we are done with it
             close(new_client);
             exit(EXIT_SUCCESS);

@@ -18,6 +18,8 @@ void print_shared_key(unsigned char *key, int len) {
 }
 
 const EVP_CIPHER *get_symmetric_cipher() { return EVP_aes_256_gcm(); }
+int get_iv_len() { return EVP_CIPHER_iv_length(get_symmetric_cipher()); }
+int get_block_size() { return EVP_CIPHER_block_size(get_symmetric_cipher()); }
 
 int get_symmetric_key_length() {
     auto cipher = get_symmetric_cipher();
@@ -30,12 +32,6 @@ int get_signature_max_length(EVP_PKEY *privkey) {
     return EVP_PKEY_size(privkey);
 }
 
-/*
- * Key derivation function: given a shared secret, its length, and the required
- * length of the key, gets a key from the shared secret of the specified length.
- * The caller is responsible for the de-allocation of the key memory, and it
- * must be freed using `delete[]`
- */
 Maybe<unsigned char *> kdf(unsigned char *shared_secret, int shared_secret_len,
                            unsigned int key_len) {
     Maybe<unsigned char *> res;
@@ -77,6 +73,43 @@ Maybe<unsigned char *> kdf(unsigned char *shared_secret, int shared_secret_len,
     return res;
 }
 
+Maybe<unsigned char *> gen_iv() {
+    Maybe<unsigned char *> res;
+
+    int iv_len = get_iv_len();
+    unsigned char *iv = new unsigned char[iv_len];
+    if (RAND_poll() != 1) {
+        delete[] iv;
+        res.set_error("Could not seed generator");
+        return res;
+    }
+
+    if (RAND_bytes(iv, iv_len) != 1) {
+        delete[] iv;
+        res.set_error("Could not generate IV");
+    } else {
+        res.set_result(iv);
+    }
+    return res;
+}
+
+Maybe<unsigned char *> get_dummy() {
+    Maybe<unsigned char *> res;
+    unsigned char *dummy = new unsigned char[DUMMY_LEN];
+
+    if (RAND_poll() != 1) {
+        res.set_error("Could not seed generator");
+        return res;
+    }
+
+    if (RAND_bytes(dummy, DUMMY_LEN) != 1) {
+        res.set_error("Could not generate dummy");
+    } else {
+        res.set_result(dummy);
+    }
+    return res;
+}
+
 Maybe<mtype> get_mtype(int socket) {
     Maybe<mtype> res;
     if (read(socket, &res.result, sizeof(mtype)) != sizeof(mtype)) {
@@ -95,9 +128,15 @@ Maybe<bool> send_header(int socket, mtype type) {
     return res;
 }
 
-Maybe<bool> send_header(int socket, mtype type, uchar *iv, int iv_len) {
+Maybe<bool> send_header(int socket, mtype type, seqnum seq_num, uchar *iv,
+                        int iv_len) {
     auto res = send_header(socket, type);
     if (res.is_error) {
+        return res;
+    }
+
+    if (write(socket, &seq_num, sizeof(seq_num)) != sizeof(seq_num)) {
+        res.set_error("Error when writing sequence number");
         return res;
     }
 

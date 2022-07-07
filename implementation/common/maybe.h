@@ -1,4 +1,6 @@
 
+#ifndef maybe_h
+#define maybe_h
 template <class T> class Maybe {
   public:
     T result;
@@ -16,3 +18,4 @@ template <class T> class Maybe {
     }
     void set_result(T res) { result = res; }
 };
+#endif

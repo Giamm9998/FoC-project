@@ -20,7 +20,7 @@ using namespace std;
 int sock;
 unsigned char *shared_key;
 
-void sigint_handler(int signum) {
+void signal_handler(int signum) {
     explicit_bzero(shared_key, get_symmetric_key_length());
     delete[] shared_key;
     // gracefully_exit(server_fd, key);
@@ -77,7 +77,7 @@ void interact() {
 
     // Interaction loop. The user can perform a set of actions, until he
     // decides to terminate the session.
-    while (true) {
+    for (;;) {
         print_menu();
         if (!getline(cin, action)) {
             cout << "Error reading input!" << endl;
@@ -103,7 +103,11 @@ int main() {
     struct sockaddr_in serv_addr;
 
     // Register signal handler to gracefully close on SIGINT
-    signal(SIGINT, sigint_handler);
+    signal(SIGINT, signal_handler);
+
+    // Register signal handler to gracefully close on SIGUSR1 (before sequence
+    // number wraps)
+    signal(SIGUSR1, signal_handler);
 
     // Create the socket
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
