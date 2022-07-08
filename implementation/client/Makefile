@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-Wall -Wextra -ansi -pedantic -lcrypto -std=c++17
-SOURCES=client.cpp authentication.cpp ../common/utils.cpp ../common/errors.cpp ../common/dhparams.cpp  ../common/seq.cpp actions/logout.cpp actions/list.cpp actions/rename.cpp
+SOURCES=client.cpp authentication.cpp ../common/utils.cpp ../common/errors.cpp ../common/dhparams.cpp  ../common/seq.cpp actions/logout.cpp actions/list.cpp actions/rename.cpp actions/download.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 BINARY=client
 

@@ -1,5 +1,6 @@
 #include "../common/types.h"
 #include "../common/utils.h"
+#include "actions/download.h"
 #include "actions/list.h"
 #include "actions/logout.h"
 #include "actions/rename.h"
@@ -78,7 +79,7 @@ void serve_client() {
             case UploadReq:
                 break;
             case DownloadReq:
-                break;
+                download(client_sock, shared_key, username);
             case DeleteReq:
                 break;
             case ListReq:

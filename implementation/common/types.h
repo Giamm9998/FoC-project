@@ -14,6 +14,9 @@ typedef ushort flen;
 #define TAG_LEN 16
 #define FNAME_MAX_LEN 128
 
+// Size of a download/upload chunk
+#define CHUNK_SIZE 4096
+
 enum mtypes {
     // Authentication
     AuthStart,

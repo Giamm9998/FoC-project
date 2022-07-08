@@ -87,6 +87,7 @@ template <typename T> Maybe<tuple<flen, T *>> read_field(int socket) {
 
     if (read(socket, r, len) != len) {
         delete[] r;
+        cout << "len: " << len << endl;
         res.set_error("Error when reading field");
         return res;
     }

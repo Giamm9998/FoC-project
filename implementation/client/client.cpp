@@ -1,6 +1,7 @@
 #include "../common/errors.h"
 #include "../common/types.h"
 #include "../common/utils.h"
+#include "actions/download.h"
 #include "actions/list.h"
 #include "actions/logout.h"
 #include "actions/rename.h"
@@ -46,11 +47,12 @@ void greet_user() {
 
 void print_menu() {
     cout << "Actions:" << endl;
-    cout << "    list - List your files" << endl;
-    cout << "    upload - Upload a new file" << endl;
-    cout << "    rename - Rename a file" << endl;
-    cout << "    delete - Delete a file" << endl;
-    cout << "    exit - Terminate current session" << endl;
+    cout << "    list     - List your files" << endl;
+    cout << "    upload   - Upload a new file" << endl;
+    cout << "    download - Download a file" << endl;
+    cout << "    rename   - Rename a file" << endl;
+    cout << "    delete   - Delete a file" << endl;
+    cout << "    exit     - Terminate current session" << endl;
     cout << "> ";
 }
 
@@ -82,6 +84,8 @@ void interact() {
                 list_files(sock, shared_key);
             } else if (action == "upload") {
                 // upload_file(server_fd, key);
+            } else if (action == "download") {
+                download(sock, shared_key);
             } else if (action == "rename") {
                 rename(sock, shared_key);
             } else if (action == "delete") {

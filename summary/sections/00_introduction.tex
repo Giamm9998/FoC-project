@@ -97,11 +97,11 @@ Legend:
                 If positive, sends file content $fc$}}{client}
         \nextlevel[5]
 
-        \mess{$upload\_chunk, E(fc_0, K), Tag(upload\_file \mid\mid seq + 2, K)$}{client}{server}
+        \mess{$upload\_chunk, E(fc_0, K), Tag(upload\_chunk \mid\mid seq + 2, K)$}{client}{server}
         \nextlevel[2]
         \mess{$\dots$}{client}{server}
         \nextlevel[2]
-        \mess{$upload\_end, E(fc_i, K), Tag(upload\_file \mid\mid seq + 2 + i, K)$}{client}{server}
+        \mess{$upload\_end, E(fc_i, K), Tag(upload\_end \mid\mid seq + 2 + i, K)$}{client}{server}
 
         \nextlevel[2]
         \action*{\parbox{4.5cm}{\centering
@@ -141,11 +141,11 @@ Legend:
                 Sends $f$ content $fc$}}{server}
 
         \nextlevel[5]
-        \mess{$download\_chunk, E(fc_0, K), Tag(download\_ans \mid\mid seq + 1, K)$}{server}{client}
+        \mess{$download\_chunk, E(fc_0, K), Tag(download\_chunk \mid\mid seq + 1, K)$}{server}{client}
         \nextlevel[2]
         \mess{$\dots$}{server}{client}
         \nextlevel[2]
-        \mess{$download\_end, E(fc_i, K), Tag(download\_ans \mid\mid seq + 1 + i, K)$}{server}{client}
+        \mess{$download\_end, E(fc_i, K), Tag(download\_end \mid\mid seq + 1 + i, K)$}{server}{client}
 
         \nextlevel
     \end{msc}
