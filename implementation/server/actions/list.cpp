@@ -195,7 +195,7 @@ void list_files(int sock, unsigned char *key, char *username) {
     }
 
     // Encrypt file list
-    ct = file_list;
+    ct = new unsigned char[file_list_len];
     if (EVP_EncryptUpdate(ctx, ct, &len, file_list, file_list_len) != 1) {
         delete[] iv;
         delete[] file_list;

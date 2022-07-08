@@ -128,4 +128,109 @@ void rename(int sock, unsigned char *key) {
     inc_seqnum();
 
     //------------------Wait server response------------------
+
+    auto mtype_res = get_mtype(sock);
+    if (mtype_res.is_error || mtype_res.result != RenameAns) {
+        handle_errors("Incorrect message type");
+    }
+
+    // read iv and sequence number
+    auto server_header_res = read_header(sock);
+    if (server_header_res.is_error) {
+        handle_errors();
+    }
+    auto [seq, in_iv] = server_header_res.result;
+    iv = in_iv;
+
+    // Check correctness of the sequence number
+    if (seq != seq_num) {
+        delete[] iv;
+        handle_errors("Incorrect sequence number");
+    }
+
+    // read ciphertext
+    auto ct_res = read_field<uchar>(sock);
+    if (ct_res.is_error) {
+        delete[] iv;
+        handle_errors();
+    }
+    auto ct_tuple = ct_res.result;
+    ct_len = get<0>(ct_tuple);
+    ct = get<1>(ct_tuple);
+
+    // Allocate plaintext of the length == ciphertext length
+    auto *pt = new unsigned char[ct_len];
+
+    // read tag
+    auto tag_res = read_field<uchar>(sock);
+    if (tag_res.is_error) {
+        delete[] ct;
+        delete[] pt;
+        delete[] iv;
+        handle_errors();
+    }
+    tag = get<1>(tag_res.result);
+
+    // Initialize decryption
+    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
+        delete[] iv;
+        delete[] ct;
+        delete[] tag;
+        delete[] pt;
+        handle_errors("Could not decrypt message (alloc)");
+    }
+
+    if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
+        delete[] iv;
+        delete[] ct;
+        delete[] tag;
+        delete[] pt;
+        EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
+    }
+    delete[] iv;
+
+    header = mtype_to_uc(mtype_res.result);
+
+    /* Specify authenticated data */
+    err = 0;
+    err |= EVP_DecryptUpdate(ctx, nullptr, &len, &header, sizeof(mtype));
+    err |=
+        EVP_DecryptUpdate(ctx, nullptr, &len, seqnum_to_uc(), sizeof(seqnum));
+
+    if (err != 1) {
+        delete[] ct;
+        delete[] tag;
+        delete[] pt;
+        EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
+    }
+
+    int pt_len;
+    if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
+        delete[] ct;
+        delete[] tag;
+        delete[] pt;
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    pt_len = len;
+
+    // GCM tag check
+    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
+
+    // Encrypt Final. Finalize the encryption and adds the padding
+    if (EVP_DecryptFinal(ctx, pt + len, &len) != 1) {
+        delete[] ct;
+        delete[] tag;
+        delete[] pt;
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    pt_len += len;
+
+    cout << endl << pt << endl;
+
+    // free context
+    EVP_CIPHER_CTX_free(ctx);
+
+    inc_seqnum();
 }
