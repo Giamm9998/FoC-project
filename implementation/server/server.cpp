@@ -1,5 +1,6 @@
 #include "../common/types.h"
 #include "../common/utils.h"
+#include "actions/list.h"
 #include "actions/logout.h"
 #include "authentication.h"
 #include <csignal>
@@ -80,6 +81,7 @@ void serve_client() {
             case DeleteReq:
                 break;
             case ListReq:
+                list_files(client_sock, shared_key, username);
                 break;
             case RenameReq:
                 break;
