@@ -57,13 +57,10 @@ Legend:
 
 \begin{figure}
     \centering
-    \begin{bytefield}[bitwidth=0.5em]{64}
-        \bitheader[]{64, 56, 48, 40, 32, 24, 16, 8, 0} \\
-        \bitbox{8}{Type}
-        \bitbox{56}{Payload length} \\
-        \wordbox[lrt]{1}{Payload} \\
-        \skippedwords \\
-        \wordbox[lrb]{1}{}
+    \begin{bytefield}[bitwidth=0.5em]{40}
+        \bitheader[]{40, 32, 24, 16, 8, 0} \\
+        \bitbox{8}{Type} & \bitbox[lrt]{32}{} \\
+        \wordbox[lrb]{2}{Payload (variable length)}
     \end{bytefield}
     \caption{General message format}
 \end{figure}
@@ -310,12 +307,12 @@ Legend:
 
 \begin{figure}
     \centering
-    \begin{bytefield}[bitwidth=0.5em]{64}
-        \bitheader[]{64, 56, 48, 40, 32, 24, 16, 8, 0} \\
-        \bitbox{8}[bgcolor=lightgreen]{Type} & \bitbox{24}{Payload length}
-        \bitbox{32}[bgcolor=lightgreen]{Sequence number} \\
-        \wordbox[lrt]{1}[bgcolor=lightgreen]{IV} \\
-        \bitbox[lrb]{32}[bgcolor=lightgreen]{} & \bitbox[lrt]{32}[bgcolor=lightred]{} \\
+    \begin{bytefield}[bitwidth=0.5em]{40}
+        \bitheader[]{40, 32, 24, 16, 8, 0} \\
+        \bitbox{8}[bgcolor=lightgreen]{Type} & 
+          \bitbox{32}[bgcolor=lightgreen]{Sequence number} \\ 
+        \wordbox[lrt]{2}[bgcolor=lightgreen]{IV} \\ 
+        \bitbox[lrb]{16}[bgcolor=lightgreen]{} & \bitbox[lrt]{24}[bgcolor=lightred]{} \\
         \wordbox[lrb]{5}[bgcolor=lightred]{Payload (variable length)}
     \end{bytefield}
     \caption{Transport protocol}
