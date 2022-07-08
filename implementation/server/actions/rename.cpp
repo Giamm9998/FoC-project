@@ -12,37 +12,30 @@
 
 using namespace std;
 
-bool is_path_illegal(string path) {
-    return path.find("..") != string::npos || path.find("/") != string::npos;
-}
+int handle_renaming(char *username, unsigned char *f_old,
+                    unsigned char *f_new) {
 
-int handle_renaming(unsigned char *msg, int msg_len, char *username) {
-    // split msg in f_old and f_new
-    string f_old = "lol.txt";
-    string f_new = "xoxo.txt";
+    // Validate old and new paths
+    fs::path f_old_path = get_user_storage_path(username) / (char *)f_old;
+    fs::path f_new_path = get_user_storage_path(username) / (char *)f_new;
 
-    // check if old filename is illegal TODO: con realpath
-    if (is_path_illegal(f_old)) {
-        cout << "ILLEGAL PATH";
+#ifdef DEBUG
+    cout << "Old path: " << f_old_path << endl
+         << "New path: " << f_new_path << endl;
+#endif
+
+    if (!is_path_valid(username, f_old_path) ||
+        !is_path_valid(username, f_new_path)) {
         return ILLEGAL_PATH;
     }
 
     // check if file exists
-    string user(username);
-    string path = filesystem::path("server/storage/" + user + "/");
-    if (!filesystem::exists(path + f_old)) {
-        cout << "FILE NOT FOUND";
+    if (!filesystem::exists(f_old_path)) {
         return FILE_NOT_FOUND;
     }
 
-    // check if new filename is illegal
-    if (is_path_illegal(f_new)) {
-        cout << "ILLEGAL PATH";
-        return ILLEGAL_PATH;
-    }
-
     // renaming
-    filesystem::rename(path + f_old, path + f_new);
+    filesystem::rename(f_old_path, f_new_path);
 
     return RENAME_OK;
 }
@@ -66,7 +59,7 @@ void rename(int sock, unsigned char *key, char *username) {
     auto ct_res = read_field<uchar>(sock);
     if (ct_res.is_error) {
         delete[] iv;
-        handle_errors("Incorrect message type");
+        handle_errors();
     }
     auto [ct_len, ct] = ct_res.result;
     auto *pt = new unsigned char[ct_len];
@@ -77,7 +70,7 @@ void rename(int sock, unsigned char *key, char *username) {
         delete[] ct;
         delete[] pt;
         delete[] iv;
-        handle_errors("Incorrect message type");
+        handle_errors();
     }
     auto [_, tag] = tag_res.result;
 
@@ -151,12 +144,9 @@ void rename(int sock, unsigned char *key, char *username) {
     inc_seqnum();
 
 #ifdef DEBUG
-    cout << endl << GREEN << "f_old || f_new: ";
-    for (int i = 0; i < pt_len; i++)
-        printf("%c", pt[i]);
-    cout << RESET << endl;
+    cout << endl << "f_old || f_new: " << pt << endl;
 #endif
 
     // handle renaming
-    handle_renaming(pt, pt_len, username);
+    handle_renaming(username, pt, pt + FNAME_MAX_LEN);
 }

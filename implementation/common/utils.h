@@ -1,5 +1,6 @@
 #include "maybe.h"
 #include "types.h"
+#include <filesystem>
 #include <iostream>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
@@ -9,6 +10,7 @@
 #include <unistd.h>
 
 using namespace std;
+namespace fs = std::filesystem;
 
 #ifndef utils_h
 #define utils_h
@@ -103,5 +105,14 @@ unsigned char mtype_to_uc(mtypes m);
 Maybe<tuple<seqnum, unsigned char *>> read_header(int socket);
 
 unsigned char *string_to_uchar(string my_string);
+
+/* Returns the path to the user storage */
+fs::path get_user_storage_path(char *username);
+
+/*
+ * Used to validate paths taken by the user.
+ * Checks for path traversals
+ */
+bool is_path_valid(char *username, fs::path user_path);
 
 #endif

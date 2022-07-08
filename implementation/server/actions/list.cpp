@@ -8,21 +8,26 @@
 #include <sys/socket.h>
 #include <tuple>
 
+using namespace std;
+namespace fs = std::filesystem;
+
 tuple<unsigned char *, unsigned int> get_file_list(char *username) {
 
     // get list of file from the user directory
     string list = "";
-    string user(username);
-    string path = std::filesystem::canonical(".") / "server/storage/" / user;
+    string path = fs::current_path() / "server" / "storage" / username;
     for (const auto &entry : filesystem::directory_iterator(path)) {
-        list += entry.path().filename();
-        list += "\n";
+        if (entry.path().filename() != ".gitignore" &&
+            entry.path().filename() != ".gitkeep") {
+            list += entry.path().filename();
+            list += "\n";
+        }
     }
 
     // Convert string to uchar*
     unsigned char *file_list = string_to_uchar(list);
 
-    return {file_list, list.length()};
+    return {file_list, list.length() + 1};
 }
 
 void list_files(int sock, unsigned char *key, char *username) {
@@ -130,16 +135,15 @@ void list_files(int sock, unsigned char *key, char *username) {
     auto [file_list, file_list_len] = get_file_list(username);
 
     // check file list length < max length of the packet data
-    if (file_list_len + 1 > FLEN_MAX) {
+    if (file_list_len > FLEN_MAX) {
         delete[] file_list;
         handle_errors("File list too long");
     }
 
 #ifdef DEBUG
-    cout << endl << GREEN << "File list from user's directory: " << endl;
-    for (int i = 0; i < file_list_len; i++)
-        printf("%c", file_list[i]);
-    cout << RESET << endl;
+    cout << endl
+         << "File list from user's directory: " << endl
+         << file_list << endl;
 #endif
 
     //-----------------Respond to client---------------------
@@ -192,9 +196,7 @@ void list_files(int sock, unsigned char *key, char *username) {
 
     // Encrypt file list
     ct = file_list;
-    if (EVP_EncryptUpdate(ctx, ct, &len, file_list, file_list_len) !=
-        1) { // TODO: len+1?
-        delete[] file_list;
+    if (EVP_EncryptUpdate(ctx, ct, &len, file_list, file_list_len) != 1) {
         delete[] iv;
         delete[] file_list;
         delete[] ct;
@@ -205,7 +207,6 @@ void list_files(int sock, unsigned char *key, char *username) {
 
     if (EVP_EncryptFinal(ctx, ct + len, &len) != 1) {
         delete[] iv;
-        delete[] file_list;
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
@@ -215,7 +216,6 @@ void list_files(int sock, unsigned char *key, char *username) {
     tag = new unsigned char[TAG_LEN];
     if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, TAG_LEN, tag) != 1) {
         delete[] iv;
-        delete[] file_list;
         delete[] ct;
         delete[] tag;
         EVP_CIPHER_CTX_free(ctx);

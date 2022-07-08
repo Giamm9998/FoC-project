@@ -14,7 +14,7 @@ void list_files(int sock, unsigned char *key) {
     }
     auto iv = iv_res.result;
 
-    // Send logout request plaintext part
+    // Send list request header
     auto send_packet_header_res =
         send_header(sock, ListReq, seq_num, iv, get_iv_len());
     if (send_packet_header_res.is_error) {
@@ -114,7 +114,7 @@ void list_files(int sock, unsigned char *key) {
 
     auto mtype_res = get_mtype(sock);
     if (mtype_res.is_error || mtype_res.result != ListAns) {
-        handle_errors();
+        handle_errors("Incorrect message type");
     }
 
     // read iv and sequence number
@@ -135,7 +135,7 @@ void list_files(int sock, unsigned char *key) {
     auto ct_res = read_field<uchar>(sock);
     if (ct_res.is_error) {
         delete[] iv;
-        handle_errors("Incorrect message type");
+        handle_errors();
     }
     auto ct_tuple = ct_res.result;
     ct_len = get<0>(ct_tuple);
@@ -150,7 +150,7 @@ void list_files(int sock, unsigned char *key) {
         delete[] ct;
         delete[] pt;
         delete[] iv;
-        handle_errors("Incorrect message type");
+        handle_errors();
     }
     tag = get<1>(tag_res.result);
 
@@ -190,7 +190,6 @@ void list_files(int sock, unsigned char *key) {
     }
 
     int pt_len;
-    // Encrypt Update: one call is enough because our message is very short.
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
         delete[] tag;
@@ -211,12 +210,7 @@ void list_files(int sock, unsigned char *key) {
     }
     pt_len += len;
 
-#ifdef DEBUG
-    cout << endl << endl << GREEN << "Received file list:" << endl;
-    for (int i = 0; i < pt_len; i++)
-        printf("%c", pt[i]);
-    cout << RESET << endl;
-#endif
+    cout << endl << "List of your files: " << endl << pt << endl;
 
     // free context
     EVP_CIPHER_CTX_free(ctx);

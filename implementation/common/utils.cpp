@@ -1,6 +1,7 @@
 #include "utils.h"
 #include "types.h"
 #include <errno.h>
+#include <filesystem>
 #include <iostream>
 #include <openssl/evp.h>
 #include <stdio.h>
@@ -9,6 +10,7 @@
 #include <unistd.h>
 
 using namespace std;
+namespace fs = std::filesystem;
 
 void print_shared_key(unsigned char *key, int len) {
     cout << "Shared key: ";
@@ -191,10 +193,19 @@ Maybe<tuple<seqnum, unsigned char *>> read_header(int socket) {
     return res;
 }
 
-unsigned char *string_to_uchar(string my_string) {
-    unsigned char *uchar = new unsigned char[my_string.length() + 1];
-    for (int i = 0; i < my_string.length(); i++) {
-        uchar[i] = (unsigned char)my_string[i];
-    }
-    return uchar;
+unsigned char *string_to_uchar(string s) {
+    unsigned char *res = new unsigned char[s.length() + 1];
+    memcpy(res, s.c_str(), s.length() + 1);
+    return res;
+}
+
+fs::path get_user_storage_path(char *username) {
+    return fs::current_path() / "server" / "storage" / username;
+}
+
+bool is_path_valid(char *username, fs::path user_path) {
+    fs::path ok_path = get_user_storage_path(username);
+    fs::path user_path_canonical = fs::weakly_canonical(user_path);
+
+    return user_path_canonical.native().rfind(ok_path.native(), 0) == 0;
 }
