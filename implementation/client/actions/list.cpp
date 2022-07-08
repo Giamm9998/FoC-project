@@ -211,15 +211,15 @@ void list_files(int sock, unsigned char *key) {
     }
     pt_len += len;
 
-    // free context
-    EVP_CIPHER_CTX_free(ctx);
-
-    inc_seqnum();
-
 #ifdef DEBUG
     cout << endl << endl << GREEN << "Received file list:" << endl;
     for (int i = 0; i < pt_len; i++)
         printf("%c", pt[i]);
     cout << RESET << endl;
 #endif
+
+    // free context
+    EVP_CIPHER_CTX_free(ctx);
+
+    inc_seqnum();
 }

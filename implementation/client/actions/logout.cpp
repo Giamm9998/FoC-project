@@ -141,7 +141,7 @@ void logout(int sock, unsigned char *key) {
     ct_len = get<0>(ct_tuple);
     ct = get<1>(ct_tuple);
 
-    auto *pt = new unsigned char[sizeof(ct)];
+    auto *pt = new unsigned char[ct_len];
 
     auto tag_res = read_field<uchar>(sock);
     if (tag_res.is_error) {

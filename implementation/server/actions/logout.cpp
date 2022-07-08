@@ -26,7 +26,7 @@ void logout(int sock, unsigned char *key) {
         handle_errors("Incorrect message type");
     }
     auto [ct_len, ct] = ct_res.result;
-    auto *pt = new unsigned char[sizeof(ct)];
+    auto *pt = new unsigned char[ct_len];
 
     auto tag_res = read_field<uchar>(sock);
     if (tag_res.is_error) {

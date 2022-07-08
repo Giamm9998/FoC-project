@@ -190,3 +190,11 @@ Maybe<tuple<seqnum, unsigned char *>> read_header(int socket) {
     res.set_result({seq, iv});
     return res;
 }
+
+unsigned char *string_to_uchar(string my_string) {
+    unsigned char *uchar = new unsigned char[my_string.length() + 1];
+    for (int i = 0; i < my_string.length(); i++) {
+        uchar[i] = (unsigned char)my_string[i];
+    }
+    return uchar;
+}

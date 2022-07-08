@@ -1,7 +1,7 @@
 #include <tuple>
 using namespace std;
 
-#ifndef listt_h
+#ifndef list_h
 #define list_h
 
 tuple<unsigned char *, unsigned int> get_file_list(char *username);

@@ -20,10 +20,7 @@ tuple<unsigned char *, unsigned int> get_file_list(char *username) {
     }
 
     // Convert string to uchar*
-    unsigned char *file_list = new unsigned char[list.length()];
-    for (int i = 0; i < list.length(); i++) {
-        file_list[i] = (unsigned char)list[i];
-    }
+    unsigned char *file_list = string_to_uchar(list);
 
     return {file_list, list.length()};
 }
@@ -50,7 +47,7 @@ void list_files(int sock, unsigned char *key, char *username) {
         handle_errors("Incorrect message type");
     }
     auto [ct_len, ct] = ct_res.result;
-    auto *pt = new unsigned char[sizeof(ct)];
+    auto *pt = new unsigned char[ct_len];
 
     // read tag
     auto tag_res = read_field<uchar>(sock);
@@ -193,7 +190,6 @@ void list_files(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
 
-    // TODO: chuncks?
     // Encrypt file list
     ct = file_list;
     if (EVP_EncryptUpdate(ctx, ct, &len, file_list, file_list_len) !=

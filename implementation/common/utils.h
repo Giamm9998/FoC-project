@@ -102,4 +102,6 @@ template <typename T> Maybe<tuple<flen, T *>> read_field(int socket) {
 unsigned char mtype_to_uc(mtypes m);
 Maybe<tuple<seqnum, unsigned char *>> read_header(int socket);
 
+unsigned char *string_to_uchar(string my_string);
+
 #endif

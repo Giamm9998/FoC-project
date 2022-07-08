@@ -2,6 +2,7 @@
 #include "../common/utils.h"
 #include "actions/list.h"
 #include "actions/logout.h"
+#include "actions/rename.h"
 #include "authentication.h"
 #include <csignal>
 #include <iostream>
@@ -84,6 +85,7 @@ void serve_client() {
                 list_files(client_sock, shared_key, username);
                 break;
             case RenameReq:
+                rename(client_sock, shared_key, username);
                 break;
             case LogoutReq:
                 kill(getpid(), SIGUSR1);

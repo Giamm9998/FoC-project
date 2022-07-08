@@ -3,6 +3,7 @@
 #include "../common/utils.h"
 #include "actions/list.h"
 #include "actions/logout.h"
+#include "actions/rename.h"
 #include "authentication.h"
 #include <arpa/inet.h>
 #include <iostream>
@@ -82,7 +83,7 @@ void interact() {
             } else if (action == "upload") {
                 // upload_file(server_fd, key);
             } else if (action == "rename") {
-                // rename_file(server_fd, key);
+                rename(sock, shared_key);
             } else if (action == "delete") {
                 // delete_file(server_fd, key);
             } else if (action == "exit") {

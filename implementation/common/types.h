@@ -12,6 +12,7 @@ typedef ushort flen;
 #define SEQNUM_MAX ((1UL << 32) - 1)
 
 #define TAG_LEN 16
+#define FNAME_MAX_LEN 128
 
 enum mtypes {
     // Authentication
