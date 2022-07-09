@@ -5,6 +5,7 @@
 #include "actions/list.h"
 #include "actions/logout.h"
 #include "actions/rename.h"
+#include "actions/upload.h"
 #include "authentication.h"
 #include <csignal>
 #include <iostream>
@@ -80,6 +81,7 @@ void serve_client() {
 
             switch (header_res.result) {
             case UploadReq:
+                upload(client_sock, shared_key, username);
                 break;
             case DownloadReq:
                 download(client_sock, shared_key, username);

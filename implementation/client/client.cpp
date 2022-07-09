@@ -6,6 +6,7 @@
 #include "actions/list.h"
 #include "actions/logout.h"
 #include "actions/rename.h"
+#include "actions/upload.h"
 #include "authentication.h"
 #include <arpa/inet.h>
 #include <iostream>
@@ -86,7 +87,7 @@ void interact() {
             if (action == "list") {
                 list_files(sock, shared_key);
             } else if (action == "upload") {
-                // upload_file(server_fd, key);
+                upload(sock, shared_key);
             } else if (action == "download") {
                 download(sock, shared_key);
             } else if (action == "rename") {

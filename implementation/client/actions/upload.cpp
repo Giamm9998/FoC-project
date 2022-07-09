@@ -2,20 +2,27 @@
 #include "../../common/seq.h"
 #include "../../common/types.h"
 #include "../../common/utils.h"
+#include <filesystem>
 #include <openssl/evp.h>
-#include <stdio.h>
 #include <string.h>
 
-#define CONF_LEN 3
+using namespace std;
+namespace fs = std::filesystem;
 
-void delete_file(int sock, unsigned char *key) {
-    unsigned char f[FNAME_MAX_LEN] = {0};
-
-    cout << "File to delete: ";
-    if (fgets((char *)f, FNAME_MAX_LEN, stdin) == nullptr) {
+void upload(int sock, unsigned char *key) {
+    cout << "What do you want to upload? ";
+    unsigned char filename[FNAME_MAX_LEN] = {0};
+    if (fgets((char *)filename, FNAME_MAX_LEN, stdin) == nullptr) {
         handle_errors();
     }
-    f[strcspn((char *)f, "\n")] = '\0';
+    filename[strcspn((char *)filename, "\n")] = '\0';
+
+    // Make sure that the file can be read before
+    FILE *input_file_fp;
+    if ((input_file_fp = fopen((char *)filename, "r")) == nullptr) {
+        cout << "Error - Could not open input file for reading" << endl;
+        return;
+    }
 
     // Generate iv for message
     auto iv_res = gen_iv();
@@ -24,9 +31,9 @@ void delete_file(int sock, unsigned char *key) {
     }
     auto iv = iv_res.result;
 
-    // Send delete request
+    // Send upload request
     auto send_packet_header_res =
-        send_header(sock, DeleteReq, seq_num, iv, get_iv_len());
+        send_header(sock, UploadReq, seq_num, iv, get_iv_len());
     if (send_packet_header_res.is_error) {
         delete[] iv;
         handle_errors(send_packet_header_res.error);
@@ -47,8 +54,9 @@ void delete_file(int sock, unsigned char *key) {
         handle_errors();
     }
 
+    // Authenticated data
     int err = 0;
-    unsigned char header = mtype_to_uc(DeleteReq);
+    unsigned char header = mtype_to_uc(UploadReq);
     err |=
         EVP_EncryptUpdate(ctx, nullptr, &len, &header, sizeof(unsigned char));
     err |=
@@ -59,10 +67,9 @@ void delete_file(int sock, unsigned char *key) {
         handle_errors();
     }
 
-    // Actual encryption
-    // Encrypt 128 bytes for f
+    // Encryption of the filename
     unsigned char *ct = new unsigned char[FNAME_MAX_LEN + get_block_size()];
-    if (EVP_EncryptUpdate(ctx, ct, &len, f, FNAME_MAX_LEN) != 1) {
+    if (EVP_EncryptUpdate(ctx, ct, &len, filename, FNAME_MAX_LEN) != 1) {
         delete[] iv;
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
@@ -70,7 +77,6 @@ void delete_file(int sock, unsigned char *key) {
     }
     ct_len = len;
 
-    // Finalize encryption
     if (EVP_EncryptFinal(ctx, ct + ct_len, &len) != 1) {
         delete[] iv;
         delete[] ct;
@@ -88,13 +94,14 @@ void delete_file(int sock, unsigned char *key) {
         handle_errors();
     }
     delete[] iv;
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
 
     // Send ciphertext
     auto ct_send_res = send_field(sock, (flen)ct_len, ct);
     if (ct_send_res.is_error) {
         delete[] ct;
         delete[] tag;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(ct_send_res.error);
     }
     delete[] ct;
@@ -102,6 +109,7 @@ void delete_file(int sock, unsigned char *key) {
     auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
     if (tag_send_res.is_error) {
         delete[] tag;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(tag_send_res.error);
     }
     delete[] tag;
@@ -113,7 +121,7 @@ void delete_file(int sock, unsigned char *key) {
     auto mtype_res = get_mtype(sock);
 
     if (mtype_res.is_error ||
-        (mtype_res.result != DeleteConfirm && mtype_res.result != Error)) {
+        (mtype_res.result != UploadAns && mtype_res.result != Error)) {
         handle_errors("Incorrect message type");
     }
 
@@ -210,125 +218,173 @@ void delete_file(int sock, unsigned char *key) {
     }
     pt_len += len;
 
+    delete[] ct;
+    delete[] tag;
+
     // free context
     EVP_CIPHER_CTX_free(ctx);
 
     inc_seqnum();
 
-    // ------------------Confirm deletion----------------------
-
     cout << endl << pt << endl;
+    delete[] pt;
     if (mtype_res.result == Error) {
         return;
     }
 
-    unsigned char confirm[CONF_LEN] = {0};
-    if (fgets((char *)confirm, CONF_LEN, stdin) == nullptr) {
-        handle_errors();
-    }
-    confirm[strcspn((char *)confirm, "\n")] = '\0';
+    // Send the file 1KB at a time
+    unsigned char buffer[CHUNK_SIZE] = {0};
+    size_t read_len;
+    ct = new unsigned char[sizeof(buffer) + get_block_size()];
+    tag = new unsigned char[TAG_LEN];
+    mtypes msg_type = UploadChunk;
 
-#ifdef DEBUG
-    // Check whether confirmation is yes (y)
-    if (strncmp((char *)confirm, "y", 1) != 0) {
-        cout << "Deletion NOT confirmed" << endl << endl;
-    } else {
-        cout << "Deletion confimed";
-    }
-#endif
-
-    // Generate iv for message
-    iv_res = gen_iv();
-    if (iv_res.is_error) {
-        handle_errors(iv_res.error);
-    }
-    iv = iv_res.result;
-
-    // Send delete request
-    send_packet_header_res =
-        send_header(sock, DeleteRes, seq_num, iv, get_iv_len());
-    if (send_packet_header_res.is_error) {
-        delete[] iv;
-        handle_errors(send_packet_header_res.error);
-    }
-
-    // Initialize encryption context
     if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] iv;
+        delete[] ct;
+        delete[] tag;
+        fclose(input_file_fp);
         handle_errors("Could not encrypt message (alloc)");
     }
 
-    if (EVP_EncryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
+    for (;;) {
+        if ((read_len = fread(buffer, sizeof(*buffer), sizeof(buffer),
+                              input_file_fp)) != sizeof(buffer)) {
+            // When we read less than expected we could either have an error, or
+            // we could have reached eof
+            if (feof(input_file_fp) != 0) {
+                // Change message type, as this is the last chunk of data
+                msg_type = UploadEnd;
+            } else if (ferror(input_file_fp) != 0) {
+                cout << endl << ferror(input_file_fp) << endl;
+                delete[] ct;
+                delete[] tag;
+                fclose(input_file_fp);
+                send_error_response(sock, key, "Error - Could not read file");
+                return;
+            } else {
+                delete[] ct;
+                delete[] tag;
+                fclose(input_file_fp);
+                send_error_response(sock, key, "Error - Cosmic rays uh?");
+                return;
+            }
+        }
+        // Generate iv for message
+        auto iv_res = gen_iv();
+        if (iv_res.is_error) {
+            delete[] ct;
+            delete[] tag;
+            fclose(input_file_fp);
+            handle_errors(iv_res.error);
+        }
+        iv = iv_res.result;
+
+        // Send chunk header
+        auto send_packet_header_res =
+            send_header(sock, msg_type, seq_num, iv, get_iv_len());
+        if (send_packet_header_res.is_error) {
+            delete[] iv;
+            delete[] ct;
+            delete[] tag;
+            fclose(input_file_fp);
+            handle_errors(send_packet_header_res.error);
+        }
+
+        if (EVP_EncryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
+            delete[] iv;
+            delete[] ct;
+            delete[] tag;
+            EVP_CIPHER_CTX_free(ctx);
+            fclose(input_file_fp);
+            handle_errors();
+        }
         delete[] iv;
-        EVP_CIPHER_CTX_free(ctx);
-        handle_errors();
+
+        // Authenticated data
+        err = 0;
+        unsigned char header = mtype_to_uc(msg_type);
+        err |= EVP_EncryptUpdate(ctx, nullptr, &len, &header,
+                                 sizeof(unsigned char));
+        err |= EVP_EncryptUpdate(ctx, nullptr, &len, seqnum_to_uc(),
+                                 sizeof(seqnum));
+        if (err != 1) {
+            delete[] ct;
+            delete[] tag;
+            EVP_CIPHER_CTX_free(ctx);
+            fclose(input_file_fp);
+            handle_errors();
+        }
+
+        // Encrypt the chunk
+        if (EVP_EncryptUpdate(ctx, ct, &len, buffer, read_len) != 1) {
+            delete[] ct;
+            delete[] tag;
+            EVP_CIPHER_CTX_free(ctx);
+            fclose(input_file_fp);
+            handle_errors();
+        }
+        ct_len = len;
+
+        // Finalize encryption
+        if (EVP_EncryptFinal(ctx, ct + ct_len, &len) != 1) {
+            delete[] ct;
+            delete[] tag;
+            EVP_CIPHER_CTX_free(ctx);
+            fclose(input_file_fp);
+            handle_errors();
+        }
+        ct_len += len;
+
+        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, TAG_LEN, tag) !=
+            1) {
+            delete[] ct;
+            delete[] tag;
+            EVP_CIPHER_CTX_free(ctx);
+            fclose(input_file_fp);
+            handle_errors();
+        }
+
+        // Send ciphertext
+        auto ct_send_res = send_field(sock, (flen)ct_len, ct);
+        if (ct_send_res.is_error) {
+            delete[] ct;
+            delete[] tag;
+            EVP_CIPHER_CTX_free(ctx);
+            fclose(input_file_fp);
+            handle_errors(ct_send_res.error);
+        }
+
+        auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+        if (tag_send_res.is_error) {
+            delete[] tag;
+            delete[] ct;
+            EVP_CIPHER_CTX_free(ctx);
+            fclose(input_file_fp);
+            handle_errors(tag_send_res.error);
+        }
+
+        // At the end, reset the context and increase the sequence number
+        EVP_CIPHER_CTX_reset(ctx);
+        inc_seqnum();
+
+        // We have reached EOF, thus the upload has ended
+        // Note that we already sent the full file to the client, correctly
+        // ending with a UploadEnd message
+        if (feof(input_file_fp) != 0) {
+            break;
+        }
     }
 
-    err = 0;
-    header = mtype_to_uc(DeleteRes);
-    err |=
-        EVP_EncryptUpdate(ctx, nullptr, &len, &header, sizeof(unsigned char));
-    err |=
-        EVP_EncryptUpdate(ctx, nullptr, &len, seqnum_to_uc(), sizeof(seqnum));
-    if (err != 1) {
-        delete[] iv;
-        EVP_CIPHER_CTX_free(ctx);
-        handle_errors();
-    }
-
-    // Actual encryption
-    // Encrypt 128 bytes for confirmation
-    ct = new unsigned char[CONF_LEN + get_block_size()];
-    if (EVP_EncryptUpdate(ctx, ct, &len, confirm, CONF_LEN) != 1) {
-        delete[] iv;
-        delete[] ct;
-        EVP_CIPHER_CTX_free(ctx);
-        handle_errors();
-    }
-    ct_len = len;
-
-    // Finalize encryption
-    if (EVP_EncryptFinal(ctx, ct + ct_len, &len) != 1) {
-        delete[] iv;
-        delete[] ct;
-        EVP_CIPHER_CTX_free(ctx);
-        handle_errors();
-    }
-    ct_len += len;
-
-    tag = new unsigned char[TAG_LEN];
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, TAG_LEN, tag) != 1) {
-        delete[] iv;
-        delete[] ct;
-        delete[] tag;
-        EVP_CIPHER_CTX_free(ctx);
-        handle_errors();
-    }
-    delete[] iv;
-    EVP_CIPHER_CTX_free(ctx);
-
-    // Send ciphertext
-    ct_send_res = send_field(sock, (flen)ct_len, ct);
-    if (ct_send_res.is_error) {
-        delete[] ct;
-        delete[] tag;
-        handle_errors(ct_send_res.error);
-    }
-    delete[] ct;
-
-    tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
-    if (tag_send_res.is_error) {
-        delete[] tag;
-        handle_errors(tag_send_res.error);
-    }
     delete[] tag;
+    delete[] ct;
+    EVP_CIPHER_CTX_free(ctx);
+    fclose(input_file_fp);
 
-    inc_seqnum();
-
-    //------------------Wait server response------------------
+    //-------------Wait server response--------------
 
     mtype_res = get_mtype(sock);
-    if (mtype_res.is_error || mtype_res.result != DeleteAns) {
+
+    if (mtype_res.is_error || mtype_res.result != UploadRes) {
         handle_errors("Incorrect message type");
     }
 
@@ -405,6 +461,7 @@ void delete_file(int sock, unsigned char *key) {
         handle_errors();
     }
 
+    pt_len;
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
         delete[] tag;
@@ -424,6 +481,9 @@ void delete_file(int sock, unsigned char *key) {
         EVP_CIPHER_CTX_free(ctx);
     }
     pt_len += len;
+
+    delete[] ct;
+    delete[] tag;
 
     // free context
     EVP_CIPHER_CTX_free(ctx);

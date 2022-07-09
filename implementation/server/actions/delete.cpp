@@ -23,6 +23,7 @@ int sanitize_path(char *username, unsigned char *f) {
     if (!filesystem::exists(f_path)) {
         return FILE_NOT_FOUND;
     }
+    return DELETE_OK;
 }
 
 string actual_delete(char *username, unsigned char *f) {
@@ -178,8 +179,15 @@ void delete_file(int sock, unsigned char *key, char *username) {
     }
     iv = iv_res.result;
 
+    mtypes confirm_header;
+    if (delete_response.find("Error") != std::string::npos) {
+        confirm_header = Error;
+    } else {
+        confirm_header = DeleteConfirm;
+    }
+
     auto send_packet_header_res =
-        send_header(sock, DeleteConfirm, seq_num, iv, get_iv_len());
+        send_header(sock, confirm_header, seq_num, iv, get_iv_len());
     if (send_packet_header_res.is_error) {
         delete[] iv;
         handle_errors(send_packet_header_res.error);
@@ -201,7 +209,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
 
     // Authenticate data
     err = 0;
-    header = mtype_to_uc(DeleteConfirm);
+    header = mtype_to_uc(confirm_header);
     err |=
         EVP_EncryptUpdate(ctx, nullptr, &len, &header, sizeof(unsigned char));
     err |=
@@ -262,7 +270,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
     inc_seqnum();
 
     // No need to continue if there is an error
-    if (delete_response.find("Error") != std::string::npos) {
+    if (confirm_header == Error) {
         return;
     }
 

@@ -141,4 +141,6 @@ bool is_path_valid(char *username, fs::path user_path);
 
 const char *mtypes_to_string(mtypes m);
 
+void send_error_response(int sock, unsigned char *key, const char *msg);
+
 #endif
