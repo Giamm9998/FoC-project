@@ -219,7 +219,7 @@ void download(int sock, unsigned char *key, char *username) {
     delete[] ct;
     delete[] tag;
 
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
 
     inc_seqnum();
 
@@ -233,19 +233,12 @@ void download(int sock, unsigned char *key, char *username) {
 
     FILE *file_fp = validation_res.result;
 
-    // Send the file 1KB at a time
+    // Send the file a chunk at a time
     unsigned char buffer[CHUNK_SIZE] = {0};
     size_t read_len;
     ct = new unsigned char[sizeof(buffer) + get_block_size()];
     tag = new unsigned char[TAG_LEN];
     mtypes msg_type = DownloadChunk;
-
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] ct;
-        delete[] tag;
-        fclose(file_fp);
-        handle_errors("Could not encrypt message (alloc)");
-    }
 
     for (;;) {
 
