@@ -1,6 +1,7 @@
 #include "../common/errors.h"
 #include "../common/types.h"
 #include "../common/utils.h"
+#include "actions/delete.h"
 #include "actions/download.h"
 #include "actions/list.h"
 #include "actions/logout.h"
@@ -91,7 +92,7 @@ void interact() {
             } else if (action == "rename") {
                 rename(sock, shared_key);
             } else if (action == "delete") {
-                // delete_file(server_fd, key);
+                delete_file(sock, shared_key);
             } else if (action == "exit") {
                 kill(getpid(), SIGUSR1);
             } else {
