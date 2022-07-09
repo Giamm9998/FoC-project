@@ -83,6 +83,7 @@ void serve_client() {
                 break;
             case DownloadReq:
                 download(client_sock, shared_key, username);
+                break;
             case DeleteReq:
                 delete_file(client_sock, shared_key, username);
                 break;
