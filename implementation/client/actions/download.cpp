@@ -178,6 +178,11 @@ void download(int sock, unsigned char *key) {
         ct = get<1>(ct_tuple);
 
         if (ct_len > CHUNK_SIZE + get_block_size()) {
+            EVP_CIPHER_CTX_free(ctx);
+            fclose(output_file_fp);
+            delete[] pt;
+            delete[] iv;
+            delete[] ct;
             handle_errors("Ciphertext longer than expected");
         }
 
