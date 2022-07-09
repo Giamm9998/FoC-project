@@ -57,8 +57,8 @@ Legend:
 
 \begin{figure}
     \centering
-    \begin{bytefield}[bitwidth=0.5em]{40}
-        \bitheader[]{40, 32, 24, 16, 8, 0} \\
+    \begin{bytefield}{40}
+        \bitheader{0,7,8,15,16,23,24,31,32,39} \\
         \bitbox{8}{Type} & \bitbox[lrt]{32}{} \\
         \wordbox[lrb]{2}{Payload (variable length)}
     \end{bytefield}
@@ -307,13 +307,15 @@ Legend:
 
 \begin{figure}
     \centering
-    \begin{bytefield}[bitwidth=0.5em]{40}
-        \bitheader[]{40, 32, 24, 16, 8, 0} \\
+    \begin{bytefield}{40}
+      \bitheader{0,7,8,15,16,23,24,31,32,39} \\
         \bitbox{8}[bgcolor=lightgreen]{Type} & 
           \bitbox{32}[bgcolor=lightgreen]{Sequence number} \\ 
         \wordbox[lrt]{2}[bgcolor=lightgreen]{IV} \\ 
         \bitbox[lrb]{16}[bgcolor=lightgreen]{} & \bitbox[lrt]{24}[bgcolor=lightred]{} \\
-        \wordbox[lrb]{5}[bgcolor=lightred]{Payload (variable length)}
-    \end{bytefield}
+        \wordbox[lrb]{5}[bgcolor=lightred]{Payload (variable length)} \\
+        \wordbox[lrt]{3}[]{Tag}\\
+        \bitbox[lrb]{8}{} & \bitbox[tl]{32}{}
+      \end{bytefield}
     \caption{Transport protocol}
 \end{figure}
