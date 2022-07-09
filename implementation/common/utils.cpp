@@ -12,13 +12,6 @@
 using namespace std;
 namespace fs = std::filesystem;
 
-void print_shared_key(unsigned char *key, int len) {
-    cout << "Shared key: ";
-    for (int i = 0; i < len; i++)
-        printf("%02x", (int)key[i]);
-    cout << endl;
-}
-
 void print_debug(unsigned char *x, int len) {
     for (int i = 0; i < len; i++)
         printf("%02x", (int)x[i]);
@@ -119,29 +112,35 @@ Maybe<unsigned char *> get_dummy() {
 
 Maybe<mtypes> get_mtype(int socket) {
     Maybe<mtypes> res;
+
     if (read(socket, &res.result, sizeof(mtype)) != sizeof(mtype)) {
         res.set_error("Error when reading mtype");
     };
 
 #ifdef DEBUG
-    cout << endl << GREEN << "Message type: ";
-    print_debug((unsigned char *)&res.result, sizeof(mtype));
-    cout << RESET << endl;
+    cout << endl
+         << GREEN << "Message type: " << mtypes_to_string(res.result) << RESET
+         << endl;
 #endif
     return res;
 }
 
-Maybe<bool> send_header(int socket, mtype type) {
+Maybe<bool> send_header(int socket, mtypes type) {
     Maybe<bool> res;
     if (write(socket, &type, sizeof(mtype)) != sizeof(mtype)) {
         res.set_error("Error when writing mtype");
         return res;
     }
+#ifdef DEBUG
+    cout << endl
+         << BLUE << "Message type: " << mtypes_to_string(mtypes(type)) << RESET
+         << endl;
+#endif
     res.set_result(true);
     return res;
 }
 
-Maybe<bool> send_header(int socket, mtype type, seqnum seq_num, uchar *iv,
+Maybe<bool> send_header(int socket, mtypes type, seqnum seq_num, uchar *iv,
                         int iv_len) {
     auto res = send_header(socket, type);
     if (res.is_error) {
@@ -153,10 +152,21 @@ Maybe<bool> send_header(int socket, mtype type, seqnum seq_num, uchar *iv,
         return res;
     }
 
+#ifdef DEBUG
+    cout << BLUE << "Sequence number: " << seq_num << RESET << endl;
+#endif
+
     if (write(socket, iv, iv_len) != iv_len) {
         res.set_error("Error when writing iv");
         return res;
     };
+
+#ifdef DEBUG
+    cout << BLUE << "IV: ";
+    print_debug(iv, iv_len);
+    cout << RESET << endl;
+#endif
+
     res.set_result(true);
     return res;
 }
@@ -166,21 +176,33 @@ unsigned char mtype_to_uc(mtypes m) { return (unsigned char)m; }
 Maybe<tuple<seqnum, unsigned char *>> read_header(int socket) {
     Maybe<tuple<seqnum, unsigned char *>> res;
 
+    ssize_t received_len = 0;
+    ssize_t read_len;
     seqnum seq;
-    if (read(socket, &seq, sizeof(seqnum)) != sizeof(seqnum)) {
-        res.set_error("Error when reading sequence number");
-        return res;
+    while ((unsigned long)received_len < sizeof(seqnum)) {
+        if ((read_len = read(socket, (uchar *)&seq + received_len,
+                             sizeof(seqnum) - received_len)) <= 0) {
+            res.set_error("Error when reading sequence number");
+            return res;
+        }
+        received_len += read_len;
     }
 
 #ifdef DEBUG
     cout << GREEN << "Sequence number: " << seq << RESET << endl;
 #endif
 
+    received_len = 0;
     unsigned char *iv = new unsigned char[get_iv_len()];
-    if (read(socket, iv, get_iv_len()) != get_iv_len()) {
-        delete[] iv;
-        res.set_error("Error when reading iv");
-        return res;
+    while (received_len < get_iv_len()) {
+        if ((read_len = read(socket, iv + received_len,
+                             get_iv_len() - received_len)) <= 0) {
+            delete[] iv;
+            res.set_error("Error when reading iv");
+            return res;
+        }
+
+        received_len += read_len;
     }
 
 #ifdef DEBUG
@@ -208,4 +230,53 @@ bool is_path_valid(char *username, fs::path user_path) {
     fs::path user_path_canonical = fs::weakly_canonical(user_path);
 
     return user_path_canonical.native().rfind(ok_path.native(), 0) == 0;
+}
+
+const char *mtypes_to_string(mtypes m) {
+    switch (m) {
+    case AuthStart:
+        return "AuthStart";
+    case AuthServerAns:
+        return "AuthServerAns";
+    case AuthClientAns:
+        return "AuthClientAns";
+    case UploadReq:
+        return "UploadReq";
+    case UploadAns:
+        return "UploadAns";
+    case UploadChunk:
+        return "UploadChunk";
+    case UploadEnd:
+        return "UploadEnd";
+    case UploadRes:
+        return "UploadRes";
+    case DownloadReq:
+        return "DownloadReq";
+    case DownloadChunk:
+        return "DownloadChunk";
+    case DownloadEnd:
+        return "DownloadEnd";
+    case DeleteReq:
+        return "DeleteReq";
+    case DeleteConfirm:
+        return "DeleteConfirm";
+    case DeleteAns:
+        return "DeleteAns";
+    case DeleteRes:
+        return "DeleteRes";
+    case ListReq:
+        return "ListReq";
+    case ListAns:
+        return "ListAns";
+    case RenameReq:
+        return "RenameReq";
+    case RenameAns:
+        return "RenameAns";
+    case LogoutReq:
+        return "LogoutReq";
+    case LogoutAns:
+        return "LogoutAns";
+    case Error:
+        return "Error";
+    }
 }

@@ -69,7 +69,9 @@ void interact() {
     try {
         shared_key = authenticate(sock, key_len);
 #ifdef DEBUG
-        print_shared_key(shared_key, key_len);
+        cout << "Shared key: ";
+        print_debug(shared_key, key_len);
+        cout << endl;
 #endif
 
         // Interaction loop. The user can perform a set of actions, until he
@@ -97,11 +99,11 @@ void interact() {
             }
         }
     } catch (char const *ex) {
-        cerr << "Authentication with the server failed";
+        cerr << "Something went wrong! :(" << endl;
 #ifdef DEBUG
-        cerr << " with \"" << ex << '"' << endl << "Exiting...";
+        cerr << "Error: " << ex << endl;
 #endif
-        cerr << endl;
+        cerr << "Exiting..." << endl;
         close(sock);
         exit(EXIT_FAILURE);
     }

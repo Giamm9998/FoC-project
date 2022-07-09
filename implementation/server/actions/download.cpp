@@ -225,6 +225,7 @@ void download(int sock, unsigned char *key, char *username) {
 
     // -----------validate client's request and answer-----------
     auto validation_res = validate_request(username, (char *)pt);
+    delete[] pt;
     if (validation_res.is_error) {
         send_error_response(sock, key, validation_res.error);
         return;
@@ -241,6 +242,8 @@ void download(int sock, unsigned char *key, char *username) {
 
     if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
         delete[] ct;
+        delete[] tag;
+        fclose(file_fp);
         handle_errors("Could not encrypt message (alloc)");
     }
 
@@ -257,11 +260,13 @@ void download(int sock, unsigned char *key, char *username) {
             } else if (ferror(file_fp) != 0) {
                 delete[] ct;
                 delete[] tag;
+                fclose(file_fp);
                 send_error_response(sock, key, "Error - Could not read file");
                 return;
             } else {
                 delete[] ct;
                 delete[] tag;
+                fclose(file_fp);
                 send_error_response(sock, key, "Error - Cosmic rays uh?");
                 return;
             }
@@ -272,6 +277,7 @@ void download(int sock, unsigned char *key, char *username) {
         if (iv_res.is_error) {
             delete[] ct;
             delete[] tag;
+            fclose(file_fp);
             handle_errors(iv_res.error);
         }
         iv = iv_res.result;
@@ -283,6 +289,7 @@ void download(int sock, unsigned char *key, char *username) {
             delete[] iv;
             delete[] ct;
             delete[] tag;
+            fclose(file_fp);
             handle_errors(send_packet_header_res.error);
         }
 
@@ -291,6 +298,7 @@ void download(int sock, unsigned char *key, char *username) {
             delete[] ct;
             delete[] tag;
             EVP_CIPHER_CTX_free(ctx);
+            fclose(file_fp);
             handle_errors();
         }
         delete[] iv;
@@ -306,6 +314,7 @@ void download(int sock, unsigned char *key, char *username) {
             delete[] ct;
             delete[] tag;
             EVP_CIPHER_CTX_free(ctx);
+            fclose(file_fp);
             handle_errors();
         }
 
@@ -314,6 +323,7 @@ void download(int sock, unsigned char *key, char *username) {
             delete[] ct;
             delete[] tag;
             EVP_CIPHER_CTX_free(ctx);
+            fclose(file_fp);
             handle_errors();
         }
         ct_len = len;
@@ -323,6 +333,7 @@ void download(int sock, unsigned char *key, char *username) {
             delete[] ct;
             delete[] tag;
             EVP_CIPHER_CTX_free(ctx);
+            fclose(file_fp);
             handle_errors();
         }
         ct_len += len;
@@ -332,6 +343,7 @@ void download(int sock, unsigned char *key, char *username) {
             delete[] ct;
             delete[] tag;
             EVP_CIPHER_CTX_free(ctx);
+            fclose(file_fp);
             handle_errors();
         }
 
@@ -341,6 +353,7 @@ void download(int sock, unsigned char *key, char *username) {
             delete[] ct;
             delete[] tag;
             EVP_CIPHER_CTX_free(ctx);
+            fclose(file_fp);
             handle_errors(ct_send_res.error);
         }
 
@@ -349,6 +362,7 @@ void download(int sock, unsigned char *key, char *username) {
             delete[] tag;
             delete[] ct;
             EVP_CIPHER_CTX_free(ctx);
+            fclose(file_fp);
             handle_errors(tag_send_res.error);
         }
 
@@ -367,4 +381,5 @@ void download(int sock, unsigned char *key, char *username) {
     delete[] tag;
     delete[] ct;
     EVP_CIPHER_CTX_free(ctx);
+    fclose(file_fp);
 }

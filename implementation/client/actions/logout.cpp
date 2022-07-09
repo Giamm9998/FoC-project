@@ -209,6 +209,9 @@ void logout(int sock, unsigned char *key) {
 
     // free context
     EVP_CIPHER_CTX_free(ctx);
+    delete[] ct;
+    delete[] tag;
+    delete[] pt;
 
     shutdown(sock, SHUT_RD);
 

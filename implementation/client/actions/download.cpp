@@ -150,7 +150,7 @@ void download(int sock, unsigned char *key) {
             EVP_CIPHER_CTX_free(ctx);
             fclose(output_file_fp);
             delete[] pt;
-            handle_errors();
+            handle_errors(server_header_res.error);
         }
         auto [seq, in_iv] = server_header_res.result;
         iv = in_iv;
@@ -189,7 +189,7 @@ void download(int sock, unsigned char *key) {
             delete[] pt;
             delete[] ct;
             delete[] iv;
-            handle_errors();
+            handle_errors(tag_res.error);
         }
         tag = get<1>(tag_res.result);
 

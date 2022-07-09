@@ -16,9 +16,10 @@ namespace fs = std::filesystem;
 #define utils_h
 
 #define GREEN "\033[1;32m"
+#define RED "\033[1;31m"
+#define BLUE "\033[1;34m"
 #define RESET "\033[0m"
 
-void print_shared_key(unsigned char *key, int len);
 void print_debug(unsigned char *x, int len);
 
 const EVP_CIPHER *get_symmetric_cipher();
@@ -54,8 +55,8 @@ Maybe<unsigned char *> get_dummy();
 
 Maybe<mtypes> get_mtype(int socket);
 
-Maybe<bool> send_header(int socket, mtype type);
-Maybe<bool> send_header(int socket, mtype type, seqnum seq_num, uchar *iv,
+Maybe<bool> send_header(int socket, mtypes type);
+Maybe<bool> send_header(int socket, mtypes type, seqnum seq_num, uchar *iv,
                         int iv_len);
 
 template <typename T> Maybe<bool> send_field(int socket, flen len, T *data) {
@@ -64,38 +65,60 @@ template <typename T> Maybe<bool> send_field(int socket, flen len, T *data) {
         res.set_error("Error when writing field length");
         return res;
     }
+
+#ifdef DEBUG
+    cout << BLUE << "Field length: " << len << RESET << endl;
+#endif
     if (write(socket, data, len) != len) {
         res.set_error("Error when writing field data");
         return res;
     }
     res.set_result(true);
+
+#ifdef DEBUG
+    cout << BLUE << "Content (hex): ";
+    print_debug((unsigned char *)data, len);
+    cout << RESET << endl;
+#endif
     return res;
 }
 
 template <typename T> Maybe<tuple<flen, T *>> read_field(int socket) {
     Maybe<tuple<flen, T *>> res;
 
+    ssize_t received_len = 0;
+    ssize_t read_len;
     flen len;
-    if (read(socket, &len, sizeof(flen)) != sizeof(flen)) {
-        res.set_error("Error when reading field length");
-        return res;
+    while ((unsigned long)received_len < sizeof(flen)) {
+        if ((read_len = read(socket, (uchar *)&len + received_len,
+                             sizeof(flen) - received_len)) <= 0) {
+            res.set_error("Error when reading field length");
+            return res;
+        }
+        received_len += read_len;
     }
+
 #ifdef DEBUG
+
     cout << GREEN << "Field length: " << len << RESET << endl;
 #endif
     T *r = new T[len];
 
-    if (read(socket, r, len) != len) {
-        delete[] r;
-        cout << "len: " << len << endl;
-        res.set_error("Error when reading field");
-        return res;
+    received_len = 0;
+    while (received_len < len) {
+        if ((read_len = read(socket, r + received_len, len - received_len)) <=
+            0) {
+            delete[] r;
+            res.set_error("Error when reading field");
+            return res;
+        }
+        received_len += read_len;
     }
 
 #ifdef DEBUG
-    cout << GREEN;
+    cout << GREEN << "Content (hex): ";
     print_debug((unsigned char *)r, len);
-    cout << RESET;
+    cout << endl << RESET;
 #endif
 
     res.set_result({len, r});
@@ -115,5 +138,7 @@ fs::path get_user_storage_path(char *username);
  * Checks for path traversals
  */
 bool is_path_valid(char *username, fs::path user_path);
+
+const char *mtypes_to_string(mtypes m);
 
 #endif

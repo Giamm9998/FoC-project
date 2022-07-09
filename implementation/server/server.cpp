@@ -66,7 +66,9 @@ void serve_client() {
         shared_key = get<1>(auth_res);
 
 #ifdef DEBUG
-        print_shared_key(shared_key, key_len);
+        cout << "Shared key: ";
+        print_debug(shared_key, key_len);
+        cout << endl;
 #endif
 
         // Server loop
@@ -99,11 +101,11 @@ void serve_client() {
             }
         }
     } catch (char const *ex) {
-        cerr << "Authentication of the client failed";
+        cerr << "Something went wrong! :(" << endl;
 #ifdef DEBUG
-        cerr << " with \"" << ex << '"' << endl << "Exiting...";
+        cerr << "Error: " << ex << endl;
 #endif
-        cerr << endl;
+        cerr << "Exiting..." << endl;
         close(client_sock);
         exit(EXIT_FAILURE);
     }

@@ -96,6 +96,9 @@ void logout(int sock, unsigned char *key) {
 
     // free context
     EVP_CIPHER_CTX_free(ctx);
+    delete[] ct;
+    delete[] tag;
+    delete[] pt;
 
     seq_num++;
 
@@ -201,6 +204,9 @@ void logout(int sock, unsigned char *key) {
         delete[] tag;
         handle_errors(tag_send_res.error);
     }
+
+    delete[] ct;
+    delete[] tag;
 
     shutdown(sock, SHUT_WR);
 
