@@ -133,8 +133,6 @@ void upload(int sock, unsigned char *key, char *username) {
     // -----------validate client's request and answer-----------
     auto validation_res = validate_path(username, (char *)pt);
 
-    unsigned char *filename = new unsigned char[pt_len];
-    memcpy(filename, pt, pt_len);
     delete[] pt;
 
     if (validation_res.is_error) {
@@ -195,6 +193,7 @@ void upload(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
     ct_len = len;
+    delete[] pt;
 
     if (EVP_EncryptFinal(ctx, ct + len, &len) != 1) {
         delete[] iv;
@@ -449,14 +448,15 @@ void upload(int sock, unsigned char *key, char *username) {
 
     // Encryption of the filename
     ct = new unsigned char[response.length() + get_block_size()];
-    if (EVP_EncryptUpdate(ctx, ct, &len, string_to_uchar(response),
-                          response.length() + 1) != 1) {
+    pt = string_to_uchar(response);
+    if (EVP_EncryptUpdate(ctx, ct, &len, pt, response.length() + 1) != 1) {
         delete[] iv;
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     ct_len = len;
+    delete[] pt;
 
     if (EVP_EncryptFinal(ctx, ct + ct_len, &len) != 1) {
         delete[] iv;
@@ -475,7 +475,7 @@ void upload(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
     delete[] iv;
-    EVP_CIPHER_CTX_reset(ctx);
+    EVP_CIPHER_CTX_free(ctx);
 
     // Send ciphertext
     ct_send_res = send_field(sock, (flen)ct_len, ct);

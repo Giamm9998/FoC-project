@@ -94,7 +94,7 @@ void upload(int sock, unsigned char *key) {
         handle_errors();
     }
     delete[] iv;
-    EVP_CIPHER_CTX_reset(ctx);
+    EVP_CIPHER_CTX_free(ctx);
 
     // Send ciphertext
     auto ct_send_res = send_field(sock, (flen)ct_len, ct);
@@ -491,4 +491,5 @@ void upload(int sock, unsigned char *key) {
     inc_seqnum();
 
     cout << endl << pt << endl;
+    delete[] pt;
 }
