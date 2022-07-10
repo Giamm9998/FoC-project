@@ -3,7 +3,6 @@
 #include "seq.h"
 #include "types.h"
 #include <errno.h>
-#include <filesystem>
 #include <iostream>
 #include <openssl/evp.h>
 #include <stdio.h>
@@ -11,8 +10,17 @@
 #include <tuple>
 #include <unistd.h>
 
-using namespace std;
+#if __has_include(<filesystem>)
+#include <filesystem>
 namespace fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+error "Missing the <filesystem> header."
+#endif
+
+using namespace std;
 
 void print_debug(unsigned char *x, int len) {
     for (int i = 0; i < len; i++)
@@ -318,9 +326,36 @@ fs::path get_user_storage_path(char *username) {
 
 bool is_path_valid(char *username, fs::path user_path) {
     fs::path ok_path = get_user_storage_path(username);
+    string user_path_canonical_str;
+#if __has_include(<filesystem>)
     fs::path user_path_canonical = fs::weakly_canonical(user_path);
+    user_path_canonical_str = user_path_canonical;
+#else
+    // realpath cannot be used on non-existing files, therefore we:
+    //   - check if the file already exists. If not, try to create the file, if
+    //   it fails it's invalid
+    //   - use realpath to get the canonical path
+    //   - remove the file, if we created it earlier
+    //   - check that the canonical path is a file in the user storage
+    bool already_exists;
+    if (!(already_exists = fs::exists(user_path))) {
+        FILE *f;
+        if ((f = fopen(user_path.native().c_str(), "w")) == nullptr) {
+            return false;
+        }
+        fclose(f);
+    }
 
-    return user_path_canonical.native().rfind(ok_path.native(), 0) == 0;
+    char *user_path_canonical = realpath(user_path.native().c_str(), nullptr);
+    if (!already_exists)
+        fs::remove(user_path);
+
+    if (user_path_canonical == nullptr)
+        return false;
+
+    user_path_canonical_str = user_path_canonical;
+#endif
+    return user_path_canonical_str.rfind(ok_path.native(), 0) == 0;
 }
 
 const char *mtypes_to_string(mtypes m) {

@@ -2,12 +2,20 @@
 #include "../../common/seq.h"
 #include "../../common/types.h"
 #include "../../common/utils.h"
-#include <filesystem>
 #include <openssl/evp.h>
 #include <string.h>
 
-using namespace std;
+#if __has_include(<filesystem>)
+#include <filesystem>
 namespace fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+error "Missing the <filesystem> header."
+#endif
+
+using namespace std;
 
 void download(int sock, unsigned char *key) {
 

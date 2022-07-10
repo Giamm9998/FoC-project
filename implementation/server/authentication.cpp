@@ -2,7 +2,6 @@
 #include "../common/dhparams.h"
 #include "../common/errors.h"
 #include "../common/utils.h"
-#include <filesystem>
 #include <iostream>
 #include <map>
 #include <new>
@@ -14,8 +13,17 @@
 #include <string.h>
 #include <tuple>
 
-using namespace std;
+#if __has_include(<filesystem>)
+#include <filesystem>
 namespace fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+error "Missing the <filesystem> header."
+#endif
+
+using namespace std;
 
 void free_user_keys(map<string, EVP_PKEY *> keys) {
     for (auto it = keys.begin(); it != keys.end(); it++) {

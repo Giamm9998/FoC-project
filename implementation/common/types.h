@@ -8,8 +8,12 @@ typedef unsigned int uint;
 typedef char mtype;
 typedef uint seqnum;
 typedef ushort flen;
-#define FLEN_MAX ((1 << 16) - 1)
+
 #define SEQNUM_MAX ((1UL << 32) - 1)
+#define LOGOUT_THRESHOLD 5
+#define SEQ_MAX_THRESHOLD (SEQNUM_MAX - LOGOUT_THRESHOLD)
+
+#define FLEN_MAX ((1 << 16) - 1)
 #define FSIZE_MAX ((1UL << 32) - 1)
 
 #define TAG_LEN 16

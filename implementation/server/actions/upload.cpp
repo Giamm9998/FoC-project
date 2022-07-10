@@ -3,32 +3,38 @@
 #include "../../common/types.h"
 #include "../../common/utils.h"
 #include "download.h"
-#include <filesystem>
 #include <openssl/evp.h>
 #include <string.h>
 
-using namespace std;
+#if __has_include(<filesystem>)
+#include <filesystem>
 namespace fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+error "Missing the <filesystem> header."
+#endif
+
+using namespace std;
 
 Maybe<fs::path> validate_path(char *username, char *f) {
     Maybe<fs::path> res;
-
     fs::path f_path = f;
 
     // Validate path
     fs::path dest_path = get_user_storage_path(username) / f_path.filename();
-#ifdef DEBUG
-    cout << "Path: " << f_path << endl << "Dest: " << dest_path << endl;
-#endif
     if (!is_path_valid(username, dest_path)) {
         res.set_error("Error - Illegal path");
         return res;
     }
+
     // check if file already exists
-    if (filesystem::exists(dest_path)) {
+    if (fs::exists(dest_path)) {
         res.set_error("Error - File already exist");
         return res;
     }
+
     res.set_result(dest_path);
     return res;
 }

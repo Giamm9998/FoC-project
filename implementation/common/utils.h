@@ -1,6 +1,5 @@
 #include "maybe.h"
 #include "types.h"
-#include <filesystem>
 #include <iostream>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
@@ -9,8 +8,17 @@
 #include <tuple>
 #include <unistd.h>
 
-using namespace std;
+#if __has_include(<filesystem>)
+#include <filesystem>
 namespace fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+error "Missing the <filesystem> header."
+#endif
+
+using namespace std;
 
 #ifndef utils_h
 #define utils_h

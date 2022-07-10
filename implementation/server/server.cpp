@@ -1,4 +1,5 @@
 #include "../common/errors.h"
+#include "../common/seq.h"
 #include "../common/types.h"
 #include "../common/utils.h"
 #include "actions/delete.h"
@@ -46,9 +47,14 @@ void signal_handler(int signum) {
 #endif
 
     if (signum == SIGUSR1) {
-        auto header_res = get_mtype(client_sock);
-        if (header_res.is_error || header_res.result != LogoutReq) {
-            handle_errors();
+        // Check whether we are exiting from a user-requested exit, or
+        // due to a wraparound happening during some other action.
+        // In the latter case, we need to receive the header of the logout
+        if (seq_num > SEQ_MAX_THRESHOLD) {
+            auto header_res = get_mtype(client_sock);
+            if (header_res.is_error || header_res.result != LogoutReq) {
+                handle_errors();
+            }
         }
 
         logout(client_sock, shared_key);

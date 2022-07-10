@@ -2,9 +2,18 @@
 #include "../../common/seq.h"
 #include "../../common/types.h"
 #include "../../common/utils.h"
-#include <filesystem>
 #include <openssl/evp.h>
 #include <string.h>
+
+#if __has_include(<filesystem>)
+#include <filesystem>
+namespace fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+error "Missing the <filesystem> header."
+#endif
 
 using namespace std;
 
@@ -30,13 +39,13 @@ Maybe<bool> handle_renaming(char *username, unsigned char *f_old,
     }
 
     // check if file exists
-    if (!filesystem::exists(f_old_path)) {
+    if (!fs::exists(f_old_path)) {
         res.set_error("Error - File does not exist");
         return res;
     }
 
     // renaming
-    filesystem::rename(f_old_path, f_new_path);
+    fs::rename(f_old_path, f_new_path);
 
     return res;
 }

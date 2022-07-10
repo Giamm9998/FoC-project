@@ -5,9 +5,8 @@
 
 seqnum seq_num = 0;
 
-#define LOGOUT_THRESHOLD 5
 void check_wraparound() {
-    if (seq_num > (SEQNUM_MAX - LOGOUT_THRESHOLD))
+    if (seq_num > (SEQ_MAX_THRESHOLD))
         kill(getpid(), SIGUSR1);
 }
 

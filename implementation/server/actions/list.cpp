@@ -2,21 +2,29 @@
 #include "../../common/seq.h"
 #include "../../common/types.h"
 #include "../../common/utils.h"
-#include <filesystem>
 #include <openssl/evp.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <tuple>
 
-using namespace std;
+#if __has_include(<filesystem>)
+#include <filesystem>
 namespace fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+error "Missing the <filesystem> header."
+#endif
+
+using namespace std;
 
 tuple<unsigned char *, unsigned int> get_file_list(char *username) {
 
     // get list of file from the user directory
     string list = "";
     string path = fs::current_path() / "server" / "storage" / username;
-    for (const auto &entry : filesystem::directory_iterator(path)) {
+    for (const auto &entry : fs::directory_iterator(path)) {
         if (entry.path().filename() != ".gitignore" &&
             entry.path().filename() != ".gitkeep") {
             list += entry.path().filename();
