@@ -326,8 +326,8 @@ unsigned char *authenticate(int socket, int key_len) {
     auto [server_signature_len, server_signature] = server_signature_res.result;
 
     // Create and initialize the verification context
-    EVP_MD_CTX *server_signature_ctx;
-    if ((server_signature_ctx = EVP_MD_CTX_new()) == nullptr) {
+    EVP_MD_CTX *signature_ctx;
+    if ((signature_ctx = EVP_MD_CTX_new()) == nullptr) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);
         delete[] client_half_key_pem;
@@ -339,14 +339,14 @@ unsigned char *authenticate(int socket, int key_len) {
         handle_errors("Signature verification failed (alloc)");
     }
 
-    EVP_VerifyInit(server_signature_ctx, get_hash_type());
+    EVP_VerifyInit(signature_ctx, get_hash_type());
 
     int err = 0;
-    err |= EVP_VerifyUpdate(server_signature_ctx, client_half_key_pem,
+    err |= EVP_VerifyUpdate(signature_ctx, client_half_key_pem,
                             client_half_key_len);
-    err |= EVP_VerifyUpdate(server_signature_ctx, server_half_key_pem,
+    err |= EVP_VerifyUpdate(signature_ctx, server_half_key_pem,
                             server_half_key_len);
-    err |= EVP_VerifyUpdate(server_signature_ctx, username.c_str(),
+    err |= EVP_VerifyUpdate(signature_ctx, username.c_str(),
                             username.length() + 1);
 
     if (err != 1) {
@@ -357,14 +357,14 @@ unsigned char *authenticate(int socket, int key_len) {
         delete[] server_half_key_pem;
         EVP_PKEY_free(server_half_key);
         delete[] server_signature;
-        EVP_MD_CTX_free(server_signature_ctx);
+        EVP_MD_CTX_free(signature_ctx);
         EVP_PKEY_free(server_pubkey);
         handle_errors("Signature verification failed (update)");
     }
 
     // Verify that the signature is correct
-    if (EVP_VerifyFinal(server_signature_ctx, server_signature,
-                        server_signature_len, server_pubkey) != 1) {
+    if (EVP_VerifyFinal(signature_ctx, server_signature, server_signature_len,
+                        server_pubkey) != 1) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);
         delete[] client_half_key_pem;
@@ -372,13 +372,13 @@ unsigned char *authenticate(int socket, int key_len) {
         delete[] server_half_key_pem;
         EVP_PKEY_free(server_half_key);
         delete[] server_signature;
-        EVP_MD_CTX_free(server_signature_ctx);
+        EVP_MD_CTX_free(signature_ctx);
         EVP_PKEY_free(server_pubkey);
         handle_errors("Signature verification failed (final)");
     }
 
     EVP_PKEY_free(server_pubkey);
-    EVP_MD_CTX_free(server_signature_ctx);
+    EVP_MD_CTX_reset(signature_ctx);
     delete[] server_signature;
 
     // Computes shared secret
@@ -447,30 +447,21 @@ unsigned char *authenticate(int socket, int key_len) {
     // Compute the signature
 
     // Initialize the context
-    EVP_MD_CTX *client_signature_ctx;
-    if ((client_signature_ctx = EVP_MD_CTX_new()) == nullptr) {
-        EVP_PKEY_free(keypair);
-        BIO_free(tmp_bio);
-        delete[] client_half_key_pem;
-        delete[] server_name;
-        delete[] server_half_key_pem;
-        handle_errors("Could not allocate signing context");
-    }
-    EVP_SignInit(client_signature_ctx, get_hash_type());
+    EVP_SignInit(signature_ctx, get_hash_type());
 
     err = 0;
-    err |= EVP_SignUpdate(client_signature_ctx, server_half_key_pem,
-                          server_half_key_len);
-    err |= EVP_SignUpdate(client_signature_ctx, client_half_key_pem,
-                          client_half_key_len);
-    err |= EVP_SignUpdate(client_signature_ctx, server_name, server_name_len);
+    err |=
+        EVP_SignUpdate(signature_ctx, server_half_key_pem, server_half_key_len);
+    err |=
+        EVP_SignUpdate(signature_ctx, client_half_key_pem, client_half_key_len);
+    err |= EVP_SignUpdate(signature_ctx, server_name, server_name_len);
     if (err != 1) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);
         delete[] client_half_key_pem;
         delete[] server_name;
         delete[] server_half_key_pem;
-        EVP_MD_CTX_free(client_signature_ctx);
+        EVP_MD_CTX_free(signature_ctx);
         handle_errors("Could not sign correctly (update)");
     }
 
@@ -484,7 +475,7 @@ unsigned char *authenticate(int socket, int key_len) {
         delete[] client_half_key_pem;
         delete[] server_name;
         delete[] server_half_key_pem;
-        EVP_MD_CTX_free(client_signature_ctx);
+        EVP_MD_CTX_free(signature_ctx);
         handle_errors("Could not open client's private key");
     }
 
@@ -497,7 +488,7 @@ unsigned char *authenticate(int socket, int key_len) {
         delete[] client_half_key_pem;
         delete[] server_name;
         delete[] server_half_key_pem;
-        EVP_MD_CTX_free(client_signature_ctx);
+        EVP_MD_CTX_free(signature_ctx);
         fclose(client_private_key_fp);
         handle_errors("Could not read client's private key");
     }
@@ -509,8 +500,8 @@ unsigned char *authenticate(int socket, int key_len) {
     unsigned int client_signature_len;
 
     // and compute the signature
-    if (EVP_SignFinal(client_signature_ctx, client_signature,
-                      &client_signature_len, client_private_key) != 1) {
+    if (EVP_SignFinal(signature_ctx, client_signature, &client_signature_len,
+                      client_private_key) != 1) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);
         delete[] client_half_key_pem;
@@ -518,12 +509,12 @@ unsigned char *authenticate(int socket, int key_len) {
         delete[] server_half_key_pem;
         delete[] client_signature;
         EVP_PKEY_free(client_private_key);
-        EVP_MD_CTX_free(client_signature_ctx);
+        EVP_MD_CTX_free(signature_ctx);
         handle_errors("Could not sign correctly (final)");
     }
 
     EVP_PKEY_free(client_private_key);
-    EVP_MD_CTX_free(client_signature_ctx);
+    EVP_MD_CTX_free(signature_ctx);
     delete[] server_half_key_pem;
     delete[] client_half_key_pem;
     delete[] server_name;

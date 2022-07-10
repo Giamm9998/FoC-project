@@ -88,10 +88,11 @@ void logout(int sock, unsigned char *key) {
     }
     delete[] iv;
     delete[] dummy;
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
 
     auto ct_send_res = send_field(sock, (flen)ct_len, ct);
     if (ct_send_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] ct;
         delete[] tag;
         handle_errors(ct_send_res.error);
@@ -99,6 +100,7 @@ void logout(int sock, unsigned char *key) {
 
     auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
     if (tag_send_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] ct;
         delete[] tag;
         handle_errors(tag_send_res.error);
@@ -117,23 +119,27 @@ void logout(int sock, unsigned char *key) {
     // -----------receive client logout request-----------
     auto mtype_res = get_mtype(sock);
     if (mtype_res.is_error || mtype_res.result != LogoutAns) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
 
     auto server_header_res = read_header(sock);
     if (server_header_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     auto [seq, in_iv] = server_header_res.result;
     iv = in_iv;
 
     if (seq != seq_num) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] iv;
         handle_errors("Incorrect sequence number");
     }
 
     auto ct_res = read_field(sock);
     if (ct_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] iv;
         handle_errors("Incorrect message type");
     }
@@ -143,18 +149,12 @@ void logout(int sock, unsigned char *key) {
 
     auto tag_res = read_field(sock);
     if (tag_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] ct;
         delete[] iv;
         handle_errors("Incorrect message type");
     }
     tag = get<1>(tag_res.result);
-
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] iv;
-        delete[] ct;
-        delete[] tag;
-        handle_errors("Could not decrypt message (alloc)");
-    }
 
     // Decrypt init
     if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {

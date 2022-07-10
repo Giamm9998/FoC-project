@@ -89,11 +89,12 @@ void list_files(int sock, unsigned char *key) {
     }
     delete[] iv;
     delete[] dummy;
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
 
     // send ciphertext and tag
     auto ct_send_res = send_field(sock, (flen)ct_len, ct);
     if (ct_send_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] ct;
         delete[] tag;
         handle_errors(ct_send_res.error);
@@ -101,12 +102,14 @@ void list_files(int sock, unsigned char *key) {
 
     auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
     if (tag_send_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] ct;
         delete[] tag;
         handle_errors(tag_send_res.error);
     }
     delete[] ct;
     delete[] tag;
+    EVP_CIPHER_CTX_reset(ctx);
 
     inc_seqnum();
 
@@ -114,12 +117,14 @@ void list_files(int sock, unsigned char *key) {
 
     auto mtype_res = get_mtype(sock);
     if (mtype_res.is_error || mtype_res.result != ListAns) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors("Incorrect message type");
     }
 
     // read iv and sequence number
     auto server_header_res = read_header(sock);
     if (server_header_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     auto [seq, in_iv] = server_header_res.result;
@@ -127,6 +132,7 @@ void list_files(int sock, unsigned char *key) {
 
     // Check correctness of the sequence number
     if (seq != seq_num) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] iv;
         handle_errors("Incorrect sequence number");
     }
@@ -134,6 +140,7 @@ void list_files(int sock, unsigned char *key) {
     // read ciphertext
     auto ct_res = read_field(sock);
     if (ct_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] iv;
         handle_errors();
     }
@@ -144,19 +151,12 @@ void list_files(int sock, unsigned char *key) {
     // read tag
     auto tag_res = read_field(sock);
     if (tag_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] ct;
         delete[] iv;
         handle_errors();
     }
     tag = get<1>(tag_res.result);
-
-    // Initialize decryption
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] iv;
-        delete[] ct;
-        delete[] tag;
-        handle_errors("Could not decrypt message (alloc)");
-    }
 
     if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;
@@ -169,7 +169,7 @@ void list_files(int sock, unsigned char *key) {
 
     header = mtype_to_uc(mtype_res.result);
 
-    /* Specify authenticated data */
+    // Specify authenticated data
     err = 0;
     err |= EVP_DecryptUpdate(ctx, nullptr, &len, &header, sizeof(mtype));
     err |=
