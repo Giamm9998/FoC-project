@@ -204,6 +204,7 @@ void list_files(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
     ct_len = len;
+    delete[] file_list;
 
     if (EVP_EncryptFinal(ctx, ct + len, &len) != 1) {
         delete[] iv;

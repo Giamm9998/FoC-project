@@ -211,6 +211,9 @@ void list_files(int sock, unsigned char *key) {
     pt_len += len;
 
     cout << endl << "List of your files: " << endl << pt << endl;
+    delete[] pt;
+    delete[] ct;
+    delete[] tag;
 
     // free context
     EVP_CIPHER_CTX_free(ctx);

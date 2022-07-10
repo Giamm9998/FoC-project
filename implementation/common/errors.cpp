@@ -10,6 +10,7 @@
 
 using namespace std;
 
+#ifdef DEBUG
 // https://gist.github.com/fmela/591333/0e8f9f123c87c1f234cd3050b2dac9c76185bdf1
 string backtrace(int skip = 1) {
     void *callstack[128];
@@ -39,6 +40,7 @@ string backtrace(int skip = 1) {
         trace_buf << "  [truncated]\n";
     return trace_buf.str();
 }
+#endif
 
 void handle_errors(const char *error) {
 #ifdef DEBUG

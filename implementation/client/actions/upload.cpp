@@ -27,6 +27,7 @@ void upload(int sock, unsigned char *key) {
     // Generate iv for message
     auto iv_res = gen_iv();
     if (iv_res.is_error) {
+        fclose(input_file_fp);
         handle_errors(iv_res.error);
     }
     auto iv = iv_res.result;
@@ -36,6 +37,7 @@ void upload(int sock, unsigned char *key) {
         send_header(sock, UploadReq, seq_num, iv, get_iv_len());
     if (send_packet_header_res.is_error) {
         delete[] iv;
+        fclose(input_file_fp);
         handle_errors(send_packet_header_res.error);
     }
 
@@ -45,11 +47,13 @@ void upload(int sock, unsigned char *key) {
     int ct_len;
     if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
         delete[] iv;
+        fclose(input_file_fp);
         handle_errors("Could not encrypt message (alloc)");
     }
 
     if (EVP_EncryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;
+        fclose(input_file_fp);
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -63,6 +67,7 @@ void upload(int sock, unsigned char *key) {
         EVP_EncryptUpdate(ctx, nullptr, &len, seqnum_to_uc(), sizeof(seqnum));
     if (err != 1) {
         delete[] iv;
+        fclose(input_file_fp);
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -71,6 +76,7 @@ void upload(int sock, unsigned char *key) {
     unsigned char *ct = new unsigned char[FNAME_MAX_LEN + get_block_size()];
     if (EVP_EncryptUpdate(ctx, ct, &len, filename, FNAME_MAX_LEN) != 1) {
         delete[] iv;
+        fclose(input_file_fp);
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
@@ -79,6 +85,7 @@ void upload(int sock, unsigned char *key) {
 
     if (EVP_EncryptFinal(ctx, ct + ct_len, &len) != 1) {
         delete[] iv;
+        fclose(input_file_fp);
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
@@ -88,18 +95,20 @@ void upload(int sock, unsigned char *key) {
     unsigned char *tag = new unsigned char[TAG_LEN];
     if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, TAG_LEN, tag) != 1) {
         delete[] iv;
+        fclose(input_file_fp);
         delete[] ct;
         delete[] tag;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     delete[] iv;
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
 
     // Send ciphertext
     auto ct_send_res = send_field(sock, (flen)ct_len, ct);
     if (ct_send_res.is_error) {
         delete[] ct;
+        fclose(input_file_fp);
         delete[] tag;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors(ct_send_res.error);
@@ -109,6 +118,7 @@ void upload(int sock, unsigned char *key) {
     auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
     if (tag_send_res.is_error) {
         delete[] tag;
+        fclose(input_file_fp);
         EVP_CIPHER_CTX_free(ctx);
         handle_errors(tag_send_res.error);
     }
@@ -122,12 +132,14 @@ void upload(int sock, unsigned char *key) {
 
     if (mtype_res.is_error ||
         (mtype_res.result != UploadAns && mtype_res.result != Error)) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors("Incorrect message type");
     }
 
     // read iv and sequence number
     auto server_header_res = read_header(sock);
     if (server_header_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     auto [seq, in_iv] = server_header_res.result;
@@ -136,6 +148,8 @@ void upload(int sock, unsigned char *key) {
     // Check correctness of the sequence number
     if (seq != seq_num) {
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
+        fclose(input_file_fp);
         handle_errors("Incorrect sequence number");
     }
 
@@ -143,6 +157,8 @@ void upload(int sock, unsigned char *key) {
     auto ct_res = read_field<uchar>(sock);
     if (ct_res.is_error) {
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
+        fclose(input_file_fp);
         handle_errors();
     }
     auto ct_tuple = ct_res.result;
@@ -156,23 +172,17 @@ void upload(int sock, unsigned char *key) {
     auto tag_res = read_field<uchar>(sock);
     if (tag_res.is_error) {
         delete[] ct;
+        fclose(input_file_fp);
         delete[] pt;
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     tag = get<1>(tag_res.result);
 
-    // Initialize decryption
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] iv;
-        delete[] ct;
-        delete[] tag;
-        delete[] pt;
-        handle_errors("Could not decrypt message (alloc)");
-    }
-
     if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;
+        fclose(input_file_fp);
         delete[] ct;
         delete[] tag;
         delete[] pt;
@@ -191,6 +201,7 @@ void upload(int sock, unsigned char *key) {
 
     if (err != 1) {
         delete[] ct;
+        fclose(input_file_fp);
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
@@ -200,51 +211,48 @@ void upload(int sock, unsigned char *key) {
     int pt_len;
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
+        fclose(input_file_fp);
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
     }
     pt_len = len;
 
     // GCM tag check
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
 
-    // Encrypt Final. Finalize the encryption and adds the padding
     if (EVP_DecryptFinal(ctx, pt + len, &len) != 1) {
         delete[] ct;
+        fclose(input_file_fp);
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
     }
     pt_len += len;
 
     delete[] ct;
     delete[] tag;
 
-    // free context
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
 
     inc_seqnum();
 
     cout << endl << pt << endl;
     delete[] pt;
+
     if (mtype_res.result == Error) {
+        EVP_CIPHER_CTX_free(ctx);
         return;
     }
 
-    // Send the file 1KB at a time
+    // Send the file a chunk at a time
     unsigned char buffer[CHUNK_SIZE] = {0};
     size_t read_len;
     ct = new unsigned char[sizeof(buffer) + get_block_size()];
     tag = new unsigned char[TAG_LEN];
     mtypes msg_type = UploadChunk;
-
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] ct;
-        delete[] tag;
-        fclose(input_file_fp);
-        handle_errors("Could not encrypt message (alloc)");
-    }
 
     for (;;) {
         if ((read_len = fread(buffer, sizeof(*buffer), sizeof(buffer),
@@ -259,12 +267,14 @@ void upload(int sock, unsigned char *key) {
                 delete[] ct;
                 delete[] tag;
                 fclose(input_file_fp);
+                EVP_CIPHER_CTX_free(ctx);
                 send_error_response(sock, key, "Error - Could not read file");
                 return;
             } else {
                 delete[] ct;
                 delete[] tag;
                 fclose(input_file_fp);
+                EVP_CIPHER_CTX_free(ctx);
                 send_error_response(sock, key, "Error - Cosmic rays uh?");
                 return;
             }
@@ -275,6 +285,7 @@ void upload(int sock, unsigned char *key) {
             delete[] ct;
             delete[] tag;
             fclose(input_file_fp);
+            EVP_CIPHER_CTX_free(ctx);
             handle_errors(iv_res.error);
         }
         iv = iv_res.result;
@@ -287,6 +298,7 @@ void upload(int sock, unsigned char *key) {
             delete[] ct;
             delete[] tag;
             fclose(input_file_fp);
+            EVP_CIPHER_CTX_free(ctx);
             handle_errors(send_packet_header_res.error);
         }
 
@@ -377,7 +389,7 @@ void upload(int sock, unsigned char *key) {
 
     delete[] tag;
     delete[] ct;
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
     fclose(input_file_fp);
 
     //-------------Wait server response--------------
@@ -385,12 +397,14 @@ void upload(int sock, unsigned char *key) {
     mtype_res = get_mtype(sock);
 
     if (mtype_res.is_error || mtype_res.result != UploadRes) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors("Incorrect message type");
     }
 
     // read iv and sequence number
     server_header_res = read_header(sock);
     if (server_header_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     seq = get<0>(server_header_res.result);
@@ -400,6 +414,7 @@ void upload(int sock, unsigned char *key) {
     // Check correctness of the sequence number
     if (seq != seq_num) {
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors("Incorrect sequence number");
     }
 
@@ -407,6 +422,7 @@ void upload(int sock, unsigned char *key) {
     ct_res = read_field<uchar>(sock);
     if (ct_res.is_error) {
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     ct_tuple = ct_res.result;
@@ -422,18 +438,10 @@ void upload(int sock, unsigned char *key) {
         delete[] ct;
         delete[] pt;
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     tag = get<1>(tag_res.result);
-
-    // Initialize decryption
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] iv;
-        delete[] ct;
-        delete[] tag;
-        delete[] pt;
-        handle_errors("Could not decrypt message (alloc)");
-    }
 
     if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;
@@ -461,12 +469,12 @@ void upload(int sock, unsigned char *key) {
         handle_errors();
     }
 
-    pt_len;
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
     }
     pt_len = len;
 
@@ -479,6 +487,7 @@ void upload(int sock, unsigned char *key) {
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
     }
     pt_len += len;
 

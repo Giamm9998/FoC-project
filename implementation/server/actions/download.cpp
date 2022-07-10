@@ -108,6 +108,7 @@ void download(int sock, unsigned char *key, char *username) {
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
     }
     pt_len = len;
 
@@ -118,6 +119,7 @@ void download(int sock, unsigned char *key, char *username) {
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
     }
     pt_len += len;
 
@@ -132,6 +134,7 @@ void download(int sock, unsigned char *key, char *username) {
     auto validation_res = validate_request(username, (char *)pt);
     delete[] pt;
     if (validation_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         send_error_response(sock, key, validation_res.error);
         return;
     }
@@ -159,12 +162,14 @@ void download(int sock, unsigned char *key, char *username) {
                 delete[] ct;
                 delete[] tag;
                 fclose(file_fp);
+                EVP_CIPHER_CTX_free(ctx);
                 send_error_response(sock, key, "Error - Could not read file");
                 return;
             } else {
                 delete[] ct;
                 delete[] tag;
                 fclose(file_fp);
+                EVP_CIPHER_CTX_free(ctx);
                 send_error_response(sock, key, "Error - Cosmic rays uh?");
                 return;
             }
@@ -176,6 +181,7 @@ void download(int sock, unsigned char *key, char *username) {
             delete[] ct;
             delete[] tag;
             fclose(file_fp);
+            EVP_CIPHER_CTX_free(ctx);
             handle_errors(iv_res.error);
         }
         iv = iv_res.result;
@@ -188,6 +194,7 @@ void download(int sock, unsigned char *key, char *username) {
             delete[] ct;
             delete[] tag;
             fclose(file_fp);
+            EVP_CIPHER_CTX_free(ctx);
             handle_errors(send_packet_header_res.error);
         }
 

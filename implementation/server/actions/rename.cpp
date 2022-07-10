@@ -6,14 +6,11 @@
 #include <openssl/evp.h>
 #include <string.h>
 
-#define RENAME_OK 0
-#define FILE_NOT_FOUND 1
-#define ILLEGAL_PATH 2
-
 using namespace std;
 
-int handle_renaming(char *username, unsigned char *f_old,
-                    unsigned char *f_new) {
+Maybe<bool> handle_renaming(char *username, unsigned char *f_old,
+                            unsigned char *f_new) {
+    Maybe<bool> res;
 
     // Validate old and new paths
     fs::path f_old_path = get_user_storage_path(username) / (char *)f_old;
@@ -26,18 +23,20 @@ int handle_renaming(char *username, unsigned char *f_old,
 
     if (!is_path_valid(username, f_old_path) ||
         !is_path_valid(username, f_new_path)) {
-        return ILLEGAL_PATH;
+        res.set_error("Error - Illegal path");
+        return res;
     }
 
     // check if file exists
     if (!filesystem::exists(f_old_path)) {
-        return FILE_NOT_FOUND;
+        res.set_error("Error - File does not exist");
+        return res;
     }
 
     // renaming
     filesystem::rename(f_old_path, f_new_path);
 
-    return RENAME_OK;
+    return res;
 }
 
 void rename(int sock, unsigned char *key, char *username) {
@@ -147,23 +146,15 @@ void rename(int sock, unsigned char *key, char *username) {
     cout << endl << "f_old || f_new: " << pt << endl;
 #endif
 
-    string rename_response;
     // handle renaming
-    int rename_res = handle_renaming(username, pt, pt + FNAME_MAX_LEN);
-    // TODO: move it in handle_renaming
-    switch (rename_res) {
-    case RENAME_OK:
-        rename_response = "Renamed file correctly";
-        break;
-    case FILE_NOT_FOUND:
-        rename_response = "Error - File not found";
-        break;
-    case ILLEGAL_PATH:
-        rename_response = "Error - Provided illegal name";
-        break;
-    default:
-        handle_errors();
+    auto rename_res = handle_renaming(username, pt, pt + FNAME_MAX_LEN);
+    if (rename_res.is_error) {
+        delete[] pt;
+        send_error_response(sock, key, rename_res.error);
+        return;
     }
+
+    delete[] pt;
 
     //-----------------Respond to client---------------------
 
@@ -208,12 +199,10 @@ void rename(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
 
-    pt_len = rename_response.length() + 1;
-    pt = string_to_uchar(rename_response);
+    unsigned char response[] = "File renamed correctly";
     ct = new unsigned char[pt_len];
-    if (EVP_EncryptUpdate(ctx, ct, &len, pt, pt_len) != 1) {
+    if (EVP_EncryptUpdate(ctx, ct, &len, response, sizeof(response)) != 1) {
         delete[] iv;
-        delete[] pt;
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
@@ -223,7 +212,6 @@ void rename(int sock, unsigned char *key, char *username) {
     if (EVP_EncryptFinal(ctx, ct + len, &len) != 1) {
         delete[] iv;
         delete[] ct;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }

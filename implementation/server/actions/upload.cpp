@@ -21,12 +21,12 @@ Maybe<fs::path> validate_path(char *username, char *f) {
     cout << "Path: " << f_path << endl << "Dest: " << dest_path << endl;
 #endif
     if (!is_path_valid(username, dest_path)) {
-        res.set_error("Illagal path");
+        res.set_error("Error - Illegal path");
         return res;
     }
     // check if file already exists
     if (filesystem::exists(dest_path)) {
-        res.set_error("File already exist");
+        res.set_error("Error - File already exist");
         return res;
     }
     res.set_result(dest_path);
@@ -139,7 +139,6 @@ void upload(int sock, unsigned char *key, char *username) {
         send_error_response(sock, key, validation_res.error);
         return;
     }
-    string response = "The file can be uploaded";
 
     // Generate iv for message
     auto iv_res = gen_iv();
@@ -182,23 +181,19 @@ void upload(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
 
-    pt_len = response.length() + 1;
-    pt = string_to_uchar(response);
+    unsigned char response[] = "The file can be uploaded";
     ct = new unsigned char[pt_len];
-    if (EVP_EncryptUpdate(ctx, ct, &len, pt, pt_len) != 1) {
+    if (EVP_EncryptUpdate(ctx, ct, &len, response, sizeof(response)) != 1) {
         delete[] iv;
-        delete[] pt;
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     ct_len = len;
-    delete[] pt;
 
     if (EVP_EncryptFinal(ctx, ct + len, &len) != 1) {
         delete[] iv;
         delete[] ct;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -399,12 +394,12 @@ void upload(int sock, unsigned char *key, char *username) {
     fclose(output_file_fp);
     delete[] pt;
 
+#ifdef DEBUG
     cout << "File saved locally as '" << output_file_path << "' correctly!"
          << endl;
+#endif
 
-    //---------------Send response----------------TODO: is it necessary?
-
-    response = "File uploaded correctly";
+    //---------------Send response----------------
 
     // Generate iv for message
     iv_res = gen_iv();
@@ -412,7 +407,6 @@ void upload(int sock, unsigned char *key, char *username) {
         handle_errors(iv_res.error);
     }
     iv = iv_res.result;
-
     // Send upload request
     send_packet_header_res =
         send_header(sock, UploadRes, seq_num, iv, get_iv_len());
@@ -447,16 +441,15 @@ void upload(int sock, unsigned char *key, char *username) {
     }
 
     // Encryption of the filename
-    ct = new unsigned char[response.length() + get_block_size()];
-    pt = string_to_uchar(response);
-    if (EVP_EncryptUpdate(ctx, ct, &len, pt, response.length() + 1) != 1) {
+    unsigned char response2[] = "File uploaded correctly";
+    ct = new unsigned char[sizeof(response2) + get_block_size()];
+    if (EVP_EncryptUpdate(ctx, ct, &len, response2, sizeof(response2)) != 1) {
         delete[] iv;
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     ct_len = len;
-    delete[] pt;
 
     if (EVP_EncryptFinal(ctx, ct + ct_len, &len) != 1) {
         delete[] iv;

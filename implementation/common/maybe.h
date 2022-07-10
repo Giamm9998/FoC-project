@@ -9,6 +9,7 @@ template <class T> class Maybe {
 
     Maybe<T>() {
         result = T();
+        error = nullptr;
         is_error = false;
     }
 

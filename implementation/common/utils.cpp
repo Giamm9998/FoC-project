@@ -280,6 +280,8 @@ const char *mtypes_to_string(mtypes m) {
         return "LogoutAns";
     case Error:
         return "Error";
+    default:
+        return "Cosmic rays uh?";
     }
 }
 
@@ -313,6 +315,7 @@ void send_error_response(int sock, unsigned char *key, const char *msg) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
+    delete[] iv;
 
     // Authenticated data
     int err = 0;
@@ -322,7 +325,6 @@ void send_error_response(int sock, unsigned char *key, const char *msg) {
     err |=
         EVP_EncryptUpdate(ctx, nullptr, &len, seqnum_to_uc(), sizeof(seqnum));
     if (err != 1) {
-        delete[] iv;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -331,7 +333,6 @@ void send_error_response(int sock, unsigned char *key, const char *msg) {
     unsigned char *ct = new unsigned char[FNAME_MAX_LEN + get_block_size()];
     if (EVP_EncryptUpdate(ctx, ct, &len, (unsigned char *)msg,
                           strlen(msg) + 1) != 1) {
-        delete[] iv;
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
@@ -339,7 +340,6 @@ void send_error_response(int sock, unsigned char *key, const char *msg) {
     ct_len = len;
 
     if (EVP_EncryptFinal(ctx, ct + ct_len, &len) != 1) {
-        delete[] iv;
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
@@ -348,14 +348,12 @@ void send_error_response(int sock, unsigned char *key, const char *msg) {
 
     unsigned char *tag = new unsigned char[TAG_LEN];
     if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, TAG_LEN, tag) != 1) {
-        delete[] iv;
         delete[] ct;
         delete[] tag;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    delete[] iv;
-    EVP_CIPHER_CTX_reset(ctx);
+    EVP_CIPHER_CTX_free(ctx);
 
     // Send ciphertext
     auto ct_send_res = send_field(sock, (flen)ct_len, ct);

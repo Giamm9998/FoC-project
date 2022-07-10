@@ -195,6 +195,7 @@ void delete_file(int sock, unsigned char *key) {
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
     }
     pt_len = len;
 
@@ -207,9 +208,12 @@ void delete_file(int sock, unsigned char *key) {
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
     }
     pt_len += len;
 
+    delete[] ct;
+    delete[] tag;
     // free context
     EVP_CIPHER_CTX_free(ctx);
 
@@ -218,6 +222,7 @@ void delete_file(int sock, unsigned char *key) {
     // ------------------Confirm deletion----------------------
 
     cout << endl << pt << endl;
+    delete[] pt;
     if (mtype_res.result == Error) {
         return;
     }
@@ -227,15 +232,6 @@ void delete_file(int sock, unsigned char *key) {
         handle_errors();
     }
     confirm[strcspn((char *)confirm, "\n")] = '\0';
-
-#ifdef DEBUG
-    // Check whether confirmation is yes (y)
-    if (strncmp((char *)confirm, "y", 1) != 0) {
-        cout << "Deletion NOT confirmed" << endl << endl;
-    } else {
-        cout << "Deletion confimed";
-    }
-#endif
 
     // Generate iv for message
     iv_res = gen_iv();
@@ -259,10 +255,11 @@ void delete_file(int sock, unsigned char *key) {
     }
 
     if (EVP_EncryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
-        delete[] iv;
         EVP_CIPHER_CTX_free(ctx);
+        delete[] iv;
         handle_errors();
     }
+    delete[] iv;
 
     err = 0;
     header = mtype_to_uc(DeleteRes);
@@ -271,7 +268,6 @@ void delete_file(int sock, unsigned char *key) {
     err |=
         EVP_EncryptUpdate(ctx, nullptr, &len, seqnum_to_uc(), sizeof(seqnum));
     if (err != 1) {
-        delete[] iv;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -280,7 +276,6 @@ void delete_file(int sock, unsigned char *key) {
     // Encrypt 128 bytes for confirmation
     ct = new unsigned char[CONF_LEN + get_block_size()];
     if (EVP_EncryptUpdate(ctx, ct, &len, confirm, CONF_LEN) != 1) {
-        delete[] iv;
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
@@ -289,7 +284,6 @@ void delete_file(int sock, unsigned char *key) {
 
     // Finalize encryption
     if (EVP_EncryptFinal(ctx, ct + ct_len, &len) != 1) {
-        delete[] iv;
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
@@ -298,13 +292,11 @@ void delete_file(int sock, unsigned char *key) {
 
     tag = new unsigned char[TAG_LEN];
     if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, TAG_LEN, tag) != 1) {
-        delete[] iv;
         delete[] ct;
         delete[] tag;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    delete[] iv;
     EVP_CIPHER_CTX_free(ctx);
 
     // Send ciphertext
@@ -427,8 +419,11 @@ void delete_file(int sock, unsigned char *key) {
 
     // free context
     EVP_CIPHER_CTX_free(ctx);
+    delete[] ct;
+    delete[] tag;
 
     inc_seqnum();
 
     cout << endl << pt << endl;
+    delete[] pt;
 }

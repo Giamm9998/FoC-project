@@ -6,28 +6,31 @@
 #include <openssl/evp.h>
 #include <string.h>
 
-#define DELETE_OK 0
-#define FILE_NOT_FOUND 1
-#define ILLEGAL_PATH 2
+using namespace std;
+namespace fs = std::filesystem;
 
-int sanitize_path(char *username, unsigned char *f) {
+Maybe<fs::path> sanitize_path(char *username, unsigned char *f) {
+    Maybe<fs::path> res;
+
     // Validate path
     fs::path f_path = get_user_storage_path(username) / (char *)f;
-#ifdef DEBUG
-    cout << "Path: " << f_path << endl;
-#endif
+
     if (!is_path_valid(username, f_path)) {
-        return ILLEGAL_PATH;
+        res.set_error("Error - Illegal path");
+        return res;
     }
-    // check if file exists
-    if (!filesystem::exists(f_path)) {
-        return FILE_NOT_FOUND;
+
+    // Check if file exists
+    if (!fs::exists(f_path)) {
+        res.set_error("Error - File already exists");
+        return res;
     }
-    return DELETE_OK;
+
+    res.set_result(f_path);
+    return res;
 }
 
-string actual_delete(char *username, unsigned char *f) {
-    fs::path f_path = get_user_storage_path(username) / (char *)f;
+string actual_delete(fs::path f_path) {
     error_code ec;
     int retval = fs::remove(f_path, ec);
     if (!ec) { // Success
@@ -147,27 +150,15 @@ void delete_file(int sock, unsigned char *key, char *username) {
     cout << endl << "f to delete: " << pt << endl;
 #endif
 
-    // plaintext stored in filename variable
-    unsigned char *filename = new unsigned char[pt_len];
-    memcpy(filename, pt, pt_len);
-    delete[] pt;
+    // Plaintext stored in filename variable
+    unsigned char *filename = pt;
 
-    string delete_response;
-    // handle deleting
-    int delete_res = sanitize_path(username, filename);
-    switch (delete_res) {
-    case DELETE_OK:
-        delete_response = "Do you confirm (y to confirm)?";
-        break;
-    case FILE_NOT_FOUND:
-        delete_response = "Error - File not found";
-        break;
-    case ILLEGAL_PATH:
-        delete_response = "Error - Provided illegal name";
-        break;
-    default:
+    // Sanitize path
+    auto sanitize_res = sanitize_path(username, filename);
+    if (sanitize_res.is_error) {
+        send_error_response(sock, key, sanitize_res.error);
         delete[] filename;
-        handle_errors();
+        return;
     }
 
     //-----------------Respond to client---------------------
@@ -179,15 +170,8 @@ void delete_file(int sock, unsigned char *key, char *username) {
     }
     iv = iv_res.result;
 
-    mtypes confirm_header;
-    if (delete_response.find("Error") != std::string::npos) {
-        confirm_header = Error;
-    } else {
-        confirm_header = DeleteConfirm;
-    }
-
     auto send_packet_header_res =
-        send_header(sock, confirm_header, seq_num, iv, get_iv_len());
+        send_header(sock, DeleteConfirm, seq_num, iv, get_iv_len());
     if (send_packet_header_res.is_error) {
         delete[] iv;
         handle_errors(send_packet_header_res.error);
@@ -209,9 +193,8 @@ void delete_file(int sock, unsigned char *key, char *username) {
 
     // Authenticate data
     err = 0;
-    header = mtype_to_uc(confirm_header);
-    err |=
-        EVP_EncryptUpdate(ctx, nullptr, &len, &header, sizeof(unsigned char));
+    header = mtype_to_uc(DeleteConfirm);
+    err |= EVP_EncryptUpdate(ctx, nullptr, &len, &header, sizeof(mtype));
     err |=
         EVP_EncryptUpdate(ctx, nullptr, &len, seqnum_to_uc(), sizeof(seqnum));
     if (err != 1) {
@@ -220,12 +203,10 @@ void delete_file(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
 
-    pt_len = delete_response.length() + 1;
-    pt = string_to_uchar(delete_response);
-    ct = new unsigned char[pt_len];
-    if (EVP_EncryptUpdate(ctx, ct, &len, pt, pt_len) != 1) {
+    unsigned char response[] = "Are you sure? (y/n)";
+    ct = new unsigned char[sizeof(response) + get_block_size()];
+    if (EVP_EncryptUpdate(ctx, ct, &len, response, sizeof(response)) != 1) {
         delete[] iv;
-        delete[] pt;
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
@@ -235,7 +216,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
     if (EVP_EncryptFinal(ctx, ct + len, &len) != 1) {
         delete[] iv;
         delete[] ct;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -268,11 +248,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
     delete[] tag;
 
     inc_seqnum();
-
-    // No need to continue if there is an error
-    if (confirm_header == Error) {
-        return;
-    }
 
     //---------------Wait client confirmation---------------------
 
@@ -355,6 +330,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
     }
     pt_len = len;
 
@@ -367,6 +343,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
+        handle_errors();
     }
     pt_len += len;
 
@@ -380,12 +357,14 @@ void delete_file(int sock, unsigned char *key, char *username) {
     inc_seqnum();
 
     // Perform actual deletion
+    string delete_response;
     if (strncmp((char *)pt, "y", 1) == 0) {
-        delete_response = actual_delete(username, filename);
+        delete_response = actual_delete(sanitize_res.result);
     } else {
-        delete_response = "Deletion canceled - user did not confirm";
+        delete_response = "Deletion aborted - user did not confirm";
     }
     delete[] pt;
+    delete[] filename;
 
     //-----------------Respond to client---------------------
 
@@ -441,11 +420,11 @@ void delete_file(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
     ct_len = len;
+    delete[] pt;
 
     if (EVP_EncryptFinal(ctx, ct + len, &len) != 1) {
         delete[] iv;
         delete[] ct;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }

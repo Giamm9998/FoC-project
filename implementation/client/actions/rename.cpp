@@ -130,7 +130,8 @@ void rename(int sock, unsigned char *key) {
     //------------------Wait server response------------------
 
     auto mtype_res = get_mtype(sock);
-    if (mtype_res.is_error || mtype_res.result != RenameAns) {
+    if (mtype_res.is_error ||
+        (mtype_res.result != RenameAns && mtype_res.result != Error)) {
         handle_errors("Incorrect message type");
     }
 
@@ -231,6 +232,9 @@ void rename(int sock, unsigned char *key) {
 
     // free context
     EVP_CIPHER_CTX_free(ctx);
+    delete[] pt;
+    delete[] ct;
+    delete[] tag;
 
     inc_seqnum();
 }
