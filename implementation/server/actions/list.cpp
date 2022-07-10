@@ -122,7 +122,7 @@ void list_files(int sock, unsigned char *key, char *username) {
     delete[] pt;
 
     // free context
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
 
     inc_seqnum();
 
@@ -132,6 +132,7 @@ void list_files(int sock, unsigned char *key, char *username) {
     // check file list length < max length of the packet data
     if (file_list_len > FLEN_MAX) {
         delete[] file_list;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors("File list too long");
     }
 
@@ -147,6 +148,7 @@ void list_files(int sock, unsigned char *key, char *username) {
     auto iv_res = gen_iv();
     if (iv_res.is_error) {
         delete[] file_list;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(iv_res.error);
     }
     iv = iv_res.result;
@@ -156,17 +158,13 @@ void list_files(int sock, unsigned char *key, char *username) {
     if (send_packet_header_res.is_error) {
         delete[] file_list;
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(send_packet_header_res.error);
     }
 
     // Initialize encryption context
     len = 0;
     ct_len = 0;
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] file_list;
-        delete[] iv;
-        handle_errors("Could not encrypt message (alloc)");
-    }
 
     if (EVP_EncryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] file_list;

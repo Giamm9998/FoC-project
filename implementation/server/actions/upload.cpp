@@ -119,7 +119,7 @@ void upload(int sock, unsigned char *key, char *username) {
     delete[] ct;
     delete[] tag;
 
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
 
     inc_seqnum();
 
@@ -129,6 +129,7 @@ void upload(int sock, unsigned char *key, char *username) {
     delete[] pt;
 
     if (validation_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         send_error_response(sock, key, validation_res.error);
         return;
     }
@@ -136,6 +137,7 @@ void upload(int sock, unsigned char *key, char *username) {
     // Generate iv for message
     auto iv_res = gen_iv();
     if (iv_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(iv_res.error);
     }
     iv = iv_res.result;
@@ -144,16 +146,13 @@ void upload(int sock, unsigned char *key, char *username) {
         send_header(sock, UploadAns, seq_num, iv, get_iv_len());
     if (send_packet_header_res.is_error) {
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(send_packet_header_res.error);
     }
 
     // Initialize encryption context
     len = 0;
     ct_len = 0;
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] iv;
-        handle_errors("Could not encrypt message (alloc)");
-    }
 
     if (EVP_EncryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;
@@ -384,7 +383,7 @@ void upload(int sock, unsigned char *key, char *username) {
         }
     }
 
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
     fclose(output_file_fp);
     delete[] pt;
 
@@ -398,6 +397,7 @@ void upload(int sock, unsigned char *key, char *username) {
     // Generate iv for message
     iv_res = gen_iv();
     if (iv_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(iv_res.error);
     }
     iv = iv_res.result;
@@ -406,13 +406,8 @@ void upload(int sock, unsigned char *key, char *username) {
         send_header(sock, UploadRes, seq_num, iv, get_iv_len());
     if (send_packet_header_res.is_error) {
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(send_packet_header_res.error);
-    }
-
-    // Initialize encryption context
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] iv;
-        handle_errors("Could not encrypt message (alloc)");
     }
 
     if (EVP_EncryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
@@ -469,7 +464,6 @@ void upload(int sock, unsigned char *key, char *username) {
     if (ct_send_res.is_error) {
         delete[] ct;
         delete[] tag;
-        EVP_CIPHER_CTX_free(ctx);
         handle_errors(ct_send_res.error);
     }
     delete[] ct;
@@ -477,7 +471,6 @@ void upload(int sock, unsigned char *key, char *username) {
     tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
     if (tag_send_res.is_error) {
         delete[] tag;
-        EVP_CIPHER_CTX_free(ctx);
         handle_errors(tag_send_res.error);
     }
     delete[] tag;

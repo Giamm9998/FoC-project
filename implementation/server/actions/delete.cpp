@@ -137,7 +137,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
     delete[] tag;
 
     // free context
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
 
     inc_seqnum();
 
@@ -151,6 +151,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
     // Sanitize path
     auto sanitize_res = sanitize_path(username, filename);
     if (sanitize_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         send_error_response(sock, key, sanitize_res.error);
         delete[] filename;
         return;
@@ -161,6 +162,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
     // Generate iv for message
     auto iv_res = gen_iv();
     if (iv_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(iv_res.error);
     }
     iv = iv_res.result;
@@ -169,16 +171,13 @@ void delete_file(int sock, unsigned char *key, char *username) {
         send_header(sock, DeleteConfirm, seq_num, iv, get_iv_len());
     if (send_packet_header_res.is_error) {
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(send_packet_header_res.error);
     }
 
     // Initialize encryption context
     len = 0;
     ct_len = 0;
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] iv;
-        handle_errors("Could not encrypt message (alloc)");
-    }
 
     if (EVP_EncryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;
@@ -225,12 +224,13 @@ void delete_file(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
     delete[] iv;
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
 
     auto ct_send_res = send_field(sock, (flen)ct_len, ct);
     if (ct_send_res.is_error) {
         delete[] ct;
         delete[] tag;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(ct_send_res.error);
     }
     delete[] ct;
@@ -238,6 +238,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
     auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
     if (tag_send_res.is_error) {
         delete[] tag;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(tag_send_res.error);
     }
     delete[] tag;
@@ -248,17 +249,20 @@ void delete_file(int sock, unsigned char *key, char *username) {
 
     auto mtype_res = get_mtype(sock);
     if (mtype_res.is_error || mtype_res.result != DeleteRes) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors("Incorrect message type");
     }
 
     server_header_res = read_header(sock);
     if (server_header_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
     seq = get<0>(server_header_res.result);
     iv = get<1>(server_header_res.result);
 
     if (seq != seq_num) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] iv;
         handle_errors("Incorrect sequence number");
     }
@@ -266,6 +270,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
     // read ciphertext
     ct_res = read_field(sock);
     if (ct_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] iv;
         handle_errors();
     }
@@ -276,21 +281,13 @@ void delete_file(int sock, unsigned char *key, char *username) {
     // read tag
     tag_res = read_field(sock);
     if (tag_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         delete[] ct;
         delete[] pt;
         delete[] iv;
         handle_errors();
     }
     tag = get<1>(tag_res.result);
-
-    // Initialize decryption
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] iv;
-        delete[] ct;
-        delete[] tag;
-        delete[] pt;
-        handle_errors("Could not decrypt message (alloc)");
-    }
 
     if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;
@@ -345,7 +342,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
     delete[] tag;
 
     // free context
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
 
     inc_seqnum();
 
@@ -364,6 +361,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
     // Generate iv for message
     iv_res = gen_iv();
     if (iv_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(iv_res.error);
     }
     iv = iv_res.result;
@@ -372,16 +370,13 @@ void delete_file(int sock, unsigned char *key, char *username) {
         send_header(sock, DeleteAns, seq_num, iv, get_iv_len());
     if (send_packet_header_res.is_error) {
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(send_packet_header_res.error);
     }
 
     // Initialize encryption context
     len = 0;
     ct_len = 0;
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] iv;
-        handle_errors("Could not encrypt message (alloc)");
-    }
 
     if (EVP_EncryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;

@@ -90,7 +90,7 @@ void logout(int sock, unsigned char *key) {
     }
 
     // free context
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_reset(ctx);
     delete[] ct;
     delete[] tag;
     delete[] pt;
@@ -107,6 +107,7 @@ void logout(int sock, unsigned char *key) {
     // Generate iv for message
     auto iv_res = gen_iv();
     if (iv_res.is_error) {
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(iv_res.error);
     }
     iv = iv_res.result;
@@ -116,16 +117,13 @@ void logout(int sock, unsigned char *key) {
         send_header(sock, LogoutAns, seq_num, iv, get_iv_len());
     if (send_packet_header_res.is_error) {
         delete[] iv;
+        EVP_CIPHER_CTX_free(ctx);
         handle_errors(send_packet_header_res.error);
     }
 
     // Initialize encryption context
     len = 0;
     ct_len = 0;
-    if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
-        delete[] iv;
-        handle_errors("Could not encrypt message (alloc)");
-    }
 
     if (EVP_EncryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;
