@@ -384,7 +384,6 @@ void upload(int sock, unsigned char *key) {
 
     delete[] tag;
     delete[] ct;
-    EVP_CIPHER_CTX_reset(ctx);
     fclose(input_file_fp);
 
     //-------------Wait server response--------------
@@ -424,14 +423,10 @@ void upload(int sock, unsigned char *key) {
     ct_len = get<0>(ct_tuple);
     ct = get<1>(ct_tuple);
 
-    // Allocate plaintext of the length == ciphertext length
-    pt = new unsigned char[ct_len];
-
     // read tag
     tag_res = read_field(sock);
     if (tag_res.is_error) {
         delete[] ct;
-        delete[] pt;
         delete[] iv;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
@@ -442,7 +437,6 @@ void upload(int sock, unsigned char *key) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -459,11 +453,12 @@ void upload(int sock, unsigned char *key) {
     if (err != 1) {
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
 
+    // Allocate plaintext of the length == ciphertext length
+    pt = new unsigned char[ct_len];
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
         delete[] tag;
@@ -475,7 +470,6 @@ void upload(int sock, unsigned char *key) {
     // GCM tag check
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
 
-    // Encrypt Final. Finalize the encryption and adds the padding
     if (EVP_DecryptFinal(ctx, pt + len, &len) != 1) {
         delete[] ct;
         delete[] tag;

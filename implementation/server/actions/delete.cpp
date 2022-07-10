@@ -23,7 +23,7 @@ Maybe<fs::path> sanitize_path(char *username, unsigned char *f) {
 
     // Check if file exists
     if (!fs::exists(f_path)) {
-        res.set_error("Error - File already exists");
+        res.set_error("Error - File doesn't exist");
         return res;
     }
 
