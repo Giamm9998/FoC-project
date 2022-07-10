@@ -13,8 +13,10 @@ Maybe<bool> handle_renaming(char *username, unsigned char *f_old,
     Maybe<bool> res;
 
     // Validate old and new paths
-    fs::path f_old_path = get_user_storage_path(username) / (char *)f_old;
-    fs::path f_new_path = get_user_storage_path(username) / (char *)f_new;
+    fs::path f_old_path =
+        get_user_storage_path(username) / reinterpret_cast<char *>(f_old);
+    fs::path f_new_path =
+        get_user_storage_path(username) / reinterpret_cast<char *>(f_new);
 
 #ifdef DEBUG
     cout << "Old path: " << f_old_path << endl
@@ -61,13 +63,11 @@ void rename(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
     auto [ct_len, ct] = ct_res.result;
-    auto *pt = new unsigned char[ct_len];
 
     // read tag
     auto tag_res = read_field(sock);
     if (tag_res.is_error) {
         delete[] ct;
-        delete[] pt;
         delete[] iv;
         handle_errors();
     }
@@ -79,7 +79,6 @@ void rename(int sock, unsigned char *key, char *username) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         handle_errors("Could not decrypt message (alloc)");
     }
     int len;
@@ -88,7 +87,6 @@ void rename(int sock, unsigned char *key, char *username) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -106,11 +104,11 @@ void rename(int sock, unsigned char *key, char *username) {
     if (err != 1) {
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
 
+    auto *pt = new unsigned char[ct_len];
     int pt_len;
     // Encrypt Update: one call is enough because our mesage is very short.
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {

@@ -52,13 +52,11 @@ void list_files(int sock, unsigned char *key, char *username) {
         handle_errors("Incorrect message type");
     }
     auto [ct_len, ct] = ct_res.result;
-    auto *pt = new unsigned char[ct_len];
 
     // read tag
     auto tag_res = read_field(sock);
     if (tag_res.is_error) {
         delete[] ct;
-        delete[] pt;
         delete[] iv;
         handle_errors("Incorrect message type");
     }
@@ -69,7 +67,6 @@ void list_files(int sock, unsigned char *key, char *username) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         handle_errors("Could not decrypt message (alloc)");
     }
     int len;
@@ -79,7 +76,6 @@ void list_files(int sock, unsigned char *key, char *username) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -97,12 +93,11 @@ void list_files(int sock, unsigned char *key, char *username) {
     if (err != 1) {
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
 
-    // Encrypt Update: one call is enough because our mesage is very short.
+    auto *pt = new unsigned char[ct_len];
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
         delete[] tag;

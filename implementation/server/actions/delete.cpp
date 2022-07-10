@@ -13,7 +13,8 @@ Maybe<fs::path> sanitize_path(char *username, unsigned char *f) {
     Maybe<fs::path> res;
 
     // Validate path
-    fs::path f_path = get_user_storage_path(username) / (char *)f;
+    fs::path f_path =
+        get_user_storage_path(username) / reinterpret_cast<char *>(f);
 
     if (!is_path_valid(username, f_path)) {
         res.set_error("Error - Illegal path");
@@ -65,13 +66,11 @@ void delete_file(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
     auto [ct_len, ct] = ct_res.result;
-    auto *pt = new unsigned char[ct_len];
 
     // read tag
     auto tag_res = read_field(sock);
     if (tag_res.is_error) {
         delete[] ct;
-        delete[] pt;
         delete[] iv;
         handle_errors();
     }
@@ -83,7 +82,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         handle_errors("Could not decrypt message (alloc)");
     }
     int len;
@@ -92,7 +90,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -110,11 +107,11 @@ void delete_file(int sock, unsigned char *key, char *username) {
     if (err != 1) {
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
 
+    auto *pt = new unsigned char[ct_len];
     int pt_len;
     // Decrypt Update
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
@@ -123,7 +120,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
     }
-    pt_len = len;
 
     // GCM tag check
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
@@ -135,7 +131,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
     }
-    pt_len += len;
 
     // free variables
     delete[] ct;
@@ -332,7 +327,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len = len;
 
     // GCM tag check
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
@@ -345,7 +339,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len += len;
 
     // free variables
     delete[] ct;
@@ -358,7 +351,7 @@ void delete_file(int sock, unsigned char *key, char *username) {
 
     // Perform actual deletion
     string delete_response;
-    if (strncmp((char *)pt, "y", 1) == 0) {
+    if (strncmp(reinterpret_cast<char *>(pt), "y", 1) == 0) {
         delete_response = actual_delete(sanitize_res.result);
     } else {
         delete_response = "Deletion aborted - user did not confirm";

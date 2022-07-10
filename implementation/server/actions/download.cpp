@@ -52,13 +52,11 @@ void download(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
     auto [ct_len, ct] = ct_res.result;
-    auto *pt = new unsigned char[ct_len];
 
     // Read tag
     auto tag_res = read_field(sock);
     if (tag_res.is_error) {
         delete[] ct;
-        delete[] pt;
         delete[] iv;
         handle_errors();
     }
@@ -70,7 +68,6 @@ void download(int sock, unsigned char *key, char *username) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         handle_errors("Could not decrypt message (alloc)");
     }
     int len;
@@ -79,7 +76,6 @@ void download(int sock, unsigned char *key, char *username) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -97,12 +93,11 @@ void download(int sock, unsigned char *key, char *username) {
     if (err != 1) {
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
 
-    int pt_len;
+    auto *pt = new unsigned char[ct_len];
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
         delete[] tag;
@@ -110,7 +105,6 @@ void download(int sock, unsigned char *key, char *username) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len = len;
 
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
 
@@ -121,7 +115,6 @@ void download(int sock, unsigned char *key, char *username) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len += len;
 
     delete[] ct;
     delete[] tag;
@@ -131,7 +124,8 @@ void download(int sock, unsigned char *key, char *username) {
     inc_seqnum();
 
     // -----------validate client's request and answer-----------
-    auto validation_res = validate_request(username, (char *)pt);
+    auto validation_res =
+        validate_request(username, reinterpret_cast<char *>(pt));
     delete[] pt;
     if (validation_res.is_error) {
         EVP_CIPHER_CTX_free(ctx);
@@ -143,13 +137,12 @@ void download(int sock, unsigned char *key, char *username) {
 
     // Send the file a chunk at a time
     unsigned char buffer[CHUNK_SIZE] = {0};
-    size_t read_len;
     ct = new unsigned char[sizeof(buffer) + get_block_size()];
     tag = new unsigned char[TAG_LEN];
     mtypes msg_type = DownloadChunk;
 
     for (;;) {
-
+        size_t read_len;
         if ((read_len = fread(buffer, sizeof(*buffer), sizeof(buffer),
                               file_fp)) != sizeof(buffer)) {
 
@@ -210,7 +203,7 @@ void download(int sock, unsigned char *key, char *username) {
 
         // Authenticated data
         err = 0;
-        unsigned char header = mtype_to_uc(msg_type);
+        header = mtype_to_uc(msg_type);
         err |= EVP_EncryptUpdate(ctx, nullptr, &len, &header,
                                  sizeof(unsigned char));
         err |= EVP_EncryptUpdate(ctx, nullptr, &len, seqnum_to_uc(),
