@@ -100,7 +100,7 @@ void list_files(int sock, unsigned char *key) {
         handle_errors(ct_send_res.error);
     }
 
-    auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+    auto tag_send_res = send_tag(sock, tag);
     if (tag_send_res.is_error) {
         EVP_CIPHER_CTX_free(ctx);
         delete[] ct;
@@ -149,14 +149,14 @@ void list_files(int sock, unsigned char *key) {
     ct = get<1>(ct_tuple);
 
     // read tag
-    auto tag_res = read_field(sock);
+    auto tag_res = read_tag(sock);
     if (tag_res.is_error) {
         EVP_CIPHER_CTX_free(ctx);
         delete[] ct;
         delete[] iv;
         handle_errors();
     }
-    tag = get<1>(tag_res.result);
+    tag = tag_res.result;
 
     if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;

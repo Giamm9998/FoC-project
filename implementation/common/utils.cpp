@@ -136,7 +136,6 @@ Maybe<bool> send_header(int socket, mtypes type) {
          << BLUE << "Message type: " << mtypes_to_string(mtypes(type)) << RESET
          << endl;
 #endif
-    res.set_result(true);
     return res;
 }
 
@@ -167,7 +166,15 @@ Maybe<bool> send_header(int socket, mtypes type, seqnum seq_num, uchar *iv,
     cout << RESET << endl;
 #endif
 
-    res.set_result(true);
+    return res;
+}
+Maybe<bool> send_tag(int socket, unsigned char *tag) {
+    Maybe<bool> res;
+    if (write(socket, tag, TAG_LEN) != TAG_LEN) {
+        res.set_error("Error when writing tag");
+        return res;
+    }
+
     return res;
 }
 
@@ -185,7 +192,6 @@ Maybe<bool> send_field(int socket, flen len, unsigned char *data) {
         res.set_error("Error when writing field data");
         return res;
     }
-    res.set_result(true);
 
 #ifdef DEBUG
     cout << BLUE << "Content (hex): ";
@@ -278,6 +284,25 @@ Maybe<tuple<seqnum, unsigned char *>> read_header(int socket) {
 #endif
 
     res.set_result({seq, iv});
+    return res;
+}
+
+Maybe<unsigned char *> read_tag(int socket) {
+    Maybe<unsigned char *> res;
+
+    ssize_t received_len = 0;
+    ssize_t read_len;
+    unsigned char *tag = new unsigned char[TAG_LEN];
+    while ((unsigned long)received_len < TAG_LEN) {
+        if ((read_len = read(socket, tag + received_len,
+                             TAG_LEN - received_len)) <= 0) {
+            res.set_error("Error when reading tag");
+            return res;
+        }
+        received_len += read_len;
+    }
+
+    res.set_result(tag);
     return res;
 }
 
@@ -431,7 +456,7 @@ void send_error_response(int sock, unsigned char *key, const char *msg) {
     }
     delete[] ct;
 
-    auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+    auto tag_send_res = send_tag(sock, tag);
     if (tag_send_res.is_error) {
         delete[] tag;
         EVP_CIPHER_CTX_free(ctx);

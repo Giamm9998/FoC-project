@@ -100,7 +100,7 @@ void delete_file(int sock, unsigned char *key) {
     }
     delete[] ct;
 
-    auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+    auto tag_send_res = send_tag(sock, tag);
     if (tag_send_res.is_error) {
         delete[] tag;
         EVP_CIPHER_CTX_free(ctx);
@@ -148,14 +148,14 @@ void delete_file(int sock, unsigned char *key) {
     ct = get<1>(ct_tuple);
 
     // read tag
-    auto tag_res = read_field(sock);
+    auto tag_res = read_tag(sock);
     if (tag_res.is_error) {
         EVP_CIPHER_CTX_free(ctx);
         delete[] ct;
         delete[] iv;
         handle_errors();
     }
-    tag = get<1>(tag_res.result);
+    tag = tag_res.result;
 
     if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;
@@ -297,7 +297,7 @@ void delete_file(int sock, unsigned char *key) {
     }
     delete[] ct;
 
-    tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+    tag_send_res = send_tag(sock, tag);
     if (tag_send_res.is_error) {
         EVP_CIPHER_CTX_free(ctx);
         delete[] tag;
@@ -347,7 +347,7 @@ void delete_file(int sock, unsigned char *key) {
     pt = new unsigned char[ct_len];
 
     // read tag
-    tag_res = read_field(sock);
+    tag_res = read_tag(sock);
     if (tag_res.is_error) {
         EVP_CIPHER_CTX_free(ctx);
         delete[] ct;
@@ -355,7 +355,7 @@ void delete_file(int sock, unsigned char *key) {
         delete[] iv;
         handle_errors();
     }
-    tag = get<1>(tag_res.result);
+    tag = tag_res.result;
 
     if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;

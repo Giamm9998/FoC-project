@@ -1,3 +1,4 @@
+#include "../common/errors.h"
 #include "../common/types.h"
 #include "../common/utils.h"
 #include "actions/delete.h"
@@ -45,6 +46,11 @@ void signal_handler(int signum) {
 #endif
 
     if (signum == SIGUSR1) {
+        auto header_res = get_mtype(client_sock);
+        if (header_res.is_error || header_res.result != LogoutReq) {
+            handle_errors();
+        }
+
         logout(client_sock, shared_key);
         delete[] username;
         explicit_bzero(shared_key, get_symmetric_key_length());

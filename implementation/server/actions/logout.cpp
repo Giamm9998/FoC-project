@@ -27,13 +27,13 @@ void logout(int sock, unsigned char *key) {
     }
     auto [ct_len, ct] = ct_res.result;
 
-    auto tag_res = read_field(sock);
+    auto tag_res = read_tag(sock);
     if (tag_res.is_error) {
         delete[] ct;
         delete[] iv;
         handle_errors("Incorrect message type");
     }
-    auto [_, tag] = tag_res.result;
+    auto tag = tag_res.result;
 
     EVP_CIPHER_CTX *ctx;
     if ((ctx = EVP_CIPHER_CTX_new()) == nullptr) {
@@ -191,7 +191,7 @@ void logout(int sock, unsigned char *key) {
         handle_errors(ct_send_res.error);
     }
 
-    auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+    auto tag_send_res = send_tag(sock, tag);
     if (tag_send_res.is_error) {
         delete[] ct;
         delete[] tag;

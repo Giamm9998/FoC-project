@@ -56,13 +56,13 @@ void upload(int sock, unsigned char *key, char *username) {
     auto [ct_len, ct] = ct_res.result;
 
     // Read tag
-    auto tag_res = read_field(sock);
+    auto tag_res = read_tag(sock);
     if (tag_res.is_error) {
         delete[] ct;
         delete[] iv;
         handle_errors();
     }
-    auto [_, tag] = tag_res.result;
+    auto tag = tag_res.result;
 
     // Initialize decryption
     EVP_CIPHER_CTX *ctx;
@@ -210,7 +210,7 @@ void upload(int sock, unsigned char *key, char *username) {
     }
     delete[] ct;
 
-    auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+    auto tag_send_res = send_tag(sock, tag);
     if (tag_send_res.is_error) {
         delete[] tag;
         handle_errors(tag_send_res.error);
@@ -274,7 +274,7 @@ void upload(int sock, unsigned char *key, char *username) {
         }
 
         // Read tag
-        tag_res = read_field(sock);
+        tag_res = read_tag(sock);
         if (tag_res.is_error) {
             EVP_CIPHER_CTX_free(ctx);
             fclose(output_file_fp);
@@ -283,7 +283,7 @@ void upload(int sock, unsigned char *key, char *username) {
             delete[] iv;
             handle_errors(tag_res.error);
         }
-        tag = get<1>(tag_res.result);
+        tag = tag_res.result;
 
         // Initialize decryption
         if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
@@ -353,8 +353,7 @@ void upload(int sock, unsigned char *key, char *username) {
             if (fs::exists(output_file_path)) {
                 fs::remove(output_file_path);
             }
-            send_error_response(sock, key, "Error - File too big");
-            return;
+            handle_errors("Error - File too big");
         }
 
         // Finally, handle the message
@@ -483,7 +482,7 @@ void upload(int sock, unsigned char *key, char *username) {
     }
     delete[] ct;
 
-    tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+    tag_send_res = send_tag(sock, tag);
     if (tag_send_res.is_error) {
         delete[] tag;
         handle_errors(tag_send_res.error);

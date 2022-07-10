@@ -27,7 +27,7 @@ void upload(int sock, unsigned char *key) {
     }
     fs::path input_path = reinterpret_cast<char *>(filename);
     if (fs::file_size(input_path) > FSIZE_MAX) {
-        cout << "Error - File too big for upload (max 4Gb)";
+        cout << "Error - File too big for upload (max 4Gb)" << endl;
         return;
     }
 
@@ -122,7 +122,7 @@ void upload(int sock, unsigned char *key) {
     }
     delete[] ct;
 
-    auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+    auto tag_send_res = send_tag(sock, tag);
     if (tag_send_res.is_error) {
         delete[] tag;
         fclose(input_file_fp);
@@ -173,7 +173,7 @@ void upload(int sock, unsigned char *key) {
     ct = get<1>(ct_tuple);
 
     // read tag
-    auto tag_res = read_field(sock);
+    auto tag_res = read_tag(sock);
     if (tag_res.is_error) {
         delete[] ct;
         fclose(input_file_fp);
@@ -181,7 +181,7 @@ void upload(int sock, unsigned char *key) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    tag = get<1>(tag_res.result);
+    tag = tag_res.result;
 
     if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;
@@ -366,7 +366,7 @@ void upload(int sock, unsigned char *key) {
             handle_errors(ct_send_res.error);
         }
 
-        tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+        tag_send_res = send_tag(sock, tag);
         if (tag_send_res.is_error) {
             delete[] tag;
             delete[] ct;
@@ -429,14 +429,14 @@ void upload(int sock, unsigned char *key) {
     ct = get<1>(ct_tuple);
 
     // read tag
-    tag_res = read_field(sock);
+    tag_res = read_tag(sock);
     if (tag_res.is_error) {
         delete[] ct;
         delete[] iv;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    tag = get<1>(tag_res.result);
+    tag = tag_res.result;
 
     if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
         delete[] iv;

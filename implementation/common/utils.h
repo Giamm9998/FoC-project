@@ -58,12 +58,14 @@ Maybe<mtypes> get_mtype(int socket);
 Maybe<bool> send_header(int socket, mtypes type);
 Maybe<bool> send_header(int socket, mtypes type, seqnum seq_num, uchar *iv,
                         int iv_len);
+Maybe<bool> send_tag(int socket, unsigned char *tag);
 
 Maybe<bool> send_field(int socket, flen len, unsigned char *data);
 Maybe<tuple<flen, unsigned char *>> read_field(int socket);
 
 unsigned char mtype_to_uc(mtypes m);
 Maybe<tuple<seqnum, unsigned char *>> read_header(int socket);
+Maybe<unsigned char *> read_tag(int socket);
 
 unsigned char *string_to_uchar(const string &my_string);
 

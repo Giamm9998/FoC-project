@@ -121,7 +121,7 @@ void download(int sock, unsigned char *key) {
     }
     delete[] ct;
 
-    auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+    auto tag_send_res = send_tag(sock, tag);
     if (tag_send_res.is_error) {
         delete[] tag;
         EVP_CIPHER_CTX_free(ctx);
@@ -188,7 +188,7 @@ void download(int sock, unsigned char *key) {
         }
 
         // Read tag
-        auto tag_res = read_field(sock);
+        auto tag_res = read_tag(sock);
         if (tag_res.is_error) {
             EVP_CIPHER_CTX_free(ctx);
             fclose(output_file_fp);
@@ -197,7 +197,7 @@ void download(int sock, unsigned char *key) {
             delete[] iv;
             handle_errors(tag_res.error);
         }
-        tag = get<1>(tag_res.result);
+        tag = tag_res.result;
 
         // Initialize decryption
         if (EVP_DecryptInit(ctx, get_symmetric_cipher(), key, iv) != 1) {
