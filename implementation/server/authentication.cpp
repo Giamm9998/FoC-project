@@ -43,7 +43,6 @@ static map<string, EVP_PKEY *> setup_keys() {
         // Open the public key file
         if ((public_key_fp = fopen(user_key_path.c_str(), "r")) == nullptr) {
             user_map.clear();
-            fclose(public_key_fp);
             handle_errors();
         }
 

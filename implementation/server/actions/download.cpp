@@ -102,7 +102,6 @@ void download(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
 
-    int pt_len;
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
         delete[] tag;
@@ -110,7 +109,6 @@ void download(int sock, unsigned char *key, char *username) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len = len;
 
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
 
@@ -121,7 +119,6 @@ void download(int sock, unsigned char *key, char *username) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len += len;
 
     delete[] ct;
     delete[] tag;
@@ -210,7 +207,7 @@ void download(int sock, unsigned char *key, char *username) {
 
         // Authenticated data
         err = 0;
-        unsigned char header = mtype_to_uc(msg_type);
+        header = mtype_to_uc(msg_type);
         err |= EVP_EncryptUpdate(ctx, nullptr, &len, &header,
                                  sizeof(unsigned char));
         err |= EVP_EncryptUpdate(ctx, nullptr, &len, seqnum_to_uc(),

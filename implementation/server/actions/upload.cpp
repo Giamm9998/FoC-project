@@ -104,14 +104,12 @@ void upload(int sock, unsigned char *key, char *username) {
         handle_errors();
     }
 
-    int pt_len;
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
     }
-    pt_len = len;
 
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
 
@@ -121,7 +119,6 @@ void upload(int sock, unsigned char *key, char *username) {
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
     }
-    pt_len += len;
 
     delete[] ct;
     delete[] tag;
@@ -182,7 +179,7 @@ void upload(int sock, unsigned char *key, char *username) {
     }
 
     unsigned char response[] = "The file can be uploaded";
-    ct = new unsigned char[pt_len];
+    ct = new unsigned char[sizeof(response)];
     if (EVP_EncryptUpdate(ctx, ct, &len, response, sizeof(response)) != 1) {
         delete[] iv;
         delete[] ct;
@@ -244,7 +241,7 @@ void upload(int sock, unsigned char *key, char *username) {
         auto server_response_header = server_response_header_res.result;
 
         // Read IV and sequence number
-        auto server_header_res = read_header(sock);
+        server_header_res = read_header(sock);
         if (server_header_res.is_error) {
             EVP_CIPHER_CTX_free(ctx);
             fclose(output_file_fp);
@@ -264,7 +261,7 @@ void upload(int sock, unsigned char *key, char *username) {
         }
 
         // Read ciphertext
-        auto ct_res = read_field<uchar>(sock);
+        ct_res = read_field<uchar>(sock);
         if (ct_res.is_error) {
             EVP_CIPHER_CTX_free(ctx);
             fclose(output_file_fp);
@@ -281,7 +278,7 @@ void upload(int sock, unsigned char *key, char *username) {
         }
 
         // Read tag
-        auto tag_res = read_field<uchar>(sock);
+        tag_res = read_field<uchar>(sock);
         if (tag_res.is_error) {
             EVP_CIPHER_CTX_free(ctx);
             fclose(output_file_fp);

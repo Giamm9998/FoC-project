@@ -123,7 +123,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
     }
-    pt_len = len;
 
     // GCM tag check
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
@@ -135,7 +134,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
     }
-    pt_len += len;
 
     // free variables
     delete[] ct;
@@ -332,7 +330,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len = len;
 
     // GCM tag check
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
@@ -345,7 +342,6 @@ void delete_file(int sock, unsigned char *key, char *username) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len += len;
 
     // free variables
     delete[] ct;
