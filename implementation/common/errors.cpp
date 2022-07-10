@@ -28,7 +28,8 @@ string backtrace(int skip = 1) {
             snprintf(buf, sizeof(buf), "%-3d %0*p %s + %zd\n", i,
                      2 + sizeof(void *) * 2, callstack[i],
                      status == 0 ? demangled : info.dli_sname,
-                     (char *)callstack[i] - (char *)info.dli_saddr);
+                     reinterpret_cast<char *>(callstack[i]) -
+                         reinterpret_cast<char *>(info.dli_saddr));
             free(demangled);
         } else {
             snprintf(buf, sizeof(buf), "%-3d %0*p\n", i, 2 + sizeof(void *) * 2,

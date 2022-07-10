@@ -46,7 +46,7 @@ void list_files(int sock, unsigned char *key, char *username) {
     }
 
     // read ciphertext
-    auto ct_res = read_field<uchar>(sock);
+    auto ct_res = read_field(sock);
     if (ct_res.is_error) {
         delete[] iv;
         handle_errors("Incorrect message type");
@@ -55,7 +55,7 @@ void list_files(int sock, unsigned char *key, char *username) {
     auto *pt = new unsigned char[ct_len];
 
     // read tag
-    auto tag_res = read_field<uchar>(sock);
+    auto tag_res = read_field(sock);
     if (tag_res.is_error) {
         delete[] ct;
         delete[] pt;

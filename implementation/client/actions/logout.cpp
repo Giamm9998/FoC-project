@@ -132,7 +132,7 @@ void logout(int sock, unsigned char *key) {
         handle_errors("Incorrect sequence number");
     }
 
-    auto ct_res = read_field<uchar>(sock);
+    auto ct_res = read_field(sock);
     if (ct_res.is_error) {
         delete[] iv;
         handle_errors("Incorrect message type");
@@ -141,12 +141,9 @@ void logout(int sock, unsigned char *key) {
     ct_len = get<0>(ct_tuple);
     ct = get<1>(ct_tuple);
 
-    auto *pt = new unsigned char[ct_len];
-
-    auto tag_res = read_field<uchar>(sock);
+    auto tag_res = read_field(sock);
     if (tag_res.is_error) {
         delete[] ct;
-        delete[] pt;
         delete[] iv;
         handle_errors("Incorrect message type");
     }
@@ -156,7 +153,6 @@ void logout(int sock, unsigned char *key) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         handle_errors("Could not decrypt message (alloc)");
     }
 
@@ -165,7 +161,6 @@ void logout(int sock, unsigned char *key) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -183,16 +178,16 @@ void logout(int sock, unsigned char *key) {
     if (err != 1) {
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
 
+    auto *pt = new unsigned char[ct_len];
     // Encrypt Update: one call is enough because our message is very short.
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
-        delete[] tag;
         delete[] pt;
+        delete[] tag;
         EVP_CIPHER_CTX_free(ctx);
     }
 

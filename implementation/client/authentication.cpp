@@ -108,7 +108,9 @@ unsigned char *authenticate(int socket, int key_len) {
 
     // Send the username
     auto send_username_res =
-        send_field(socket, username.length() + 1, username.c_str());
+        send_field(socket, username.length() + 1,
+                   reinterpret_cast<unsigned char *>(
+                       const_cast<char *>(username.c_str())));
     if (send_username_res.is_error) {
         handle_errors(send_username_res.error);
     }
@@ -138,7 +140,7 @@ unsigned char *authenticate(int socket, int key_len) {
 
     // Get the length and a pointer to the bio's memory data
     long client_half_key_len;
-    char *client_half_key_ptr;
+    unsigned char *client_half_key_ptr;
     if ((client_half_key_len =
              BIO_get_mem_data(tmp_bio, &client_half_key_ptr)) <= 0) {
         EVP_PKEY_free(keypair);
@@ -156,12 +158,12 @@ unsigned char *authenticate(int socket, int key_len) {
     }
 
     // Copy the half key for later usage (signature computation/verification)
-    char *client_half_key_pem = new char[client_half_key_len];
+    unsigned char *client_half_key_pem = new unsigned char[client_half_key_len];
     memcpy(client_half_key_pem, client_half_key_ptr, client_half_key_len);
 
     // Finally send the half key
-    auto send_client_half_key_result = send_field<char>(
-        socket, (flen)client_half_key_len, client_half_key_ptr);
+    auto send_client_half_key_result =
+        send_field(socket, (flen)client_half_key_len, client_half_key_ptr);
 
     if (send_client_half_key_result.is_error) {
         EVP_PKEY_free(keypair);
@@ -186,7 +188,7 @@ unsigned char *authenticate(int socket, int key_len) {
     }
 
     // Get server name
-    auto server_name_result = read_field<char>(socket);
+    auto server_name_result = read_field(socket);
     if (server_name_result.is_error) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);
@@ -197,7 +199,8 @@ unsigned char *authenticate(int socket, int key_len) {
 
     // This check is more of a sanity check than else, as it should serve no
     // purpose from the security point of view
-    if (strncmp("server", server_name, server_name_len) != 0) {
+    if (strncmp("server", reinterpret_cast<char *>(server_name),
+                server_name_len) != 0) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);
         delete[] client_half_key_pem;
@@ -206,7 +209,7 @@ unsigned char *authenticate(int socket, int key_len) {
     }
 
     // Receive server's pubkey in PEM format
-    auto server_half_key_result = read_field<uchar>(socket);
+    auto server_half_key_result = read_field(socket);
     if (server_half_key_result.is_error) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);
@@ -247,7 +250,7 @@ unsigned char *authenticate(int socket, int key_len) {
 #endif
 
     // Receive server's certificate and verify it
-    auto server_certificate_res = read_field<char>(socket);
+    auto server_certificate_res = read_field(socket);
     if (server_certificate_res.is_error) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);
@@ -308,7 +311,7 @@ unsigned char *authenticate(int socket, int key_len) {
     auto server_pubkey = server_pubkey_res.result;
 
     // Receive server's digital signature and verify it
-    auto server_signature_res = read_field<unsigned char>(socket);
+    auto server_signature_res = read_field(socket);
     if (server_signature_res.is_error) {
         EVP_PKEY_free(keypair);
         BIO_free(tmp_bio);

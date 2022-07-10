@@ -48,7 +48,7 @@ void upload(int sock, unsigned char *key, char *username) {
     }
 
     // Read ciphertext
-    auto ct_res = read_field<uchar>(sock);
+    auto ct_res = read_field(sock);
     if (ct_res.is_error) {
         delete[] iv;
         handle_errors();
@@ -57,7 +57,7 @@ void upload(int sock, unsigned char *key, char *username) {
     auto *pt = new unsigned char[ct_len];
 
     // Read tag
-    auto tag_res = read_field<uchar>(sock);
+    auto tag_res = read_field(sock);
     if (tag_res.is_error) {
         delete[] ct;
         delete[] pt;
@@ -264,7 +264,7 @@ void upload(int sock, unsigned char *key, char *username) {
         }
 
         // Read ciphertext
-        auto ct_res = read_field<uchar>(sock);
+        auto ct_res = read_field(sock);
         if (ct_res.is_error) {
             EVP_CIPHER_CTX_free(ctx);
             fclose(output_file_fp);
@@ -281,7 +281,7 @@ void upload(int sock, unsigned char *key, char *username) {
         }
 
         // Read tag
-        auto tag_res = read_field<uchar>(sock);
+        auto tag_res = read_field(sock);
         if (tag_res.is_error) {
             EVP_CIPHER_CTX_free(ctx);
             fclose(output_file_fp);

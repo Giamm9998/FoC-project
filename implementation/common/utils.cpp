@@ -37,7 +37,6 @@ int get_signature_max_length(EVP_PKEY *privkey) {
 Maybe<unsigned char *> kdf(unsigned char *shared_secret, int shared_secret_len,
                            unsigned int key_len) {
     Maybe<unsigned char *> res;
-    unsigned char *key = new unsigned char[key_len];
 
     unsigned char *digest = new unsigned char[get_hash_type_length()];
     unsigned int digest_len;
@@ -46,7 +45,6 @@ Maybe<unsigned char *> kdf(unsigned char *shared_secret, int shared_secret_len,
         EVP_DigestInit(ctx, get_hash_type()) != 1 ||
         EVP_DigestUpdate(ctx, shared_secret, shared_secret_len) != 1 ||
         EVP_DigestFinal(ctx, digest, &digest_len) != 1) {
-        delete[] key;
         delete[] digest;
         delete[] shared_secret;
         explicit_bzero(shared_secret, shared_secret_len);
@@ -60,13 +58,13 @@ Maybe<unsigned char *> kdf(unsigned char *shared_secret, int shared_secret_len,
     EVP_MD_CTX_free(ctx);
 
     if (digest_len < key_len) {
-        delete[] key;
         delete[] digest;
         res.set_error("Cannot derive a key: key length is bigger than the "
                       "digest's length.");
         return res;
     }
 
+    unsigned char *key = new unsigned char[key_len];
     memcpy(key, digest, key_len);
     explicit_bzero(digest, digest_len);
     delete[] digest;
@@ -79,13 +77,12 @@ Maybe<unsigned char *> gen_iv() {
     Maybe<unsigned char *> res;
 
     int iv_len = get_iv_len();
-    unsigned char *iv = new unsigned char[iv_len];
     if (RAND_poll() != 1) {
-        delete[] iv;
         res.set_error("Could not seed generator");
         return res;
     }
 
+    unsigned char *iv = new unsigned char[iv_len];
     if (RAND_bytes(iv, iv_len) != 1) {
         delete[] iv;
         res.set_error("Could not generate IV");
@@ -97,14 +94,15 @@ Maybe<unsigned char *> gen_iv() {
 
 Maybe<unsigned char *> get_dummy() {
     Maybe<unsigned char *> res;
-    unsigned char *dummy = new unsigned char[DUMMY_LEN];
 
     if (RAND_poll() != 1) {
         res.set_error("Could not seed generator");
         return res;
     }
 
+    unsigned char *dummy = new unsigned char[DUMMY_LEN];
     if (RAND_bytes(dummy, DUMMY_LEN) != 1) {
+        delete[] dummy;
         res.set_error("Could not generate dummy");
     } else {
         res.set_result(dummy);
@@ -173,6 +171,72 @@ Maybe<bool> send_header(int socket, mtypes type, seqnum seq_num, uchar *iv,
     return res;
 }
 
+Maybe<bool> send_field(int socket, flen len, unsigned char *data) {
+    Maybe<bool> res;
+    if (write(socket, &len, sizeof(flen)) != sizeof(flen)) {
+        res.set_error("Error when writing field length");
+        return res;
+    }
+
+#ifdef DEBUG
+    cout << BLUE << "Field length: " << len << RESET << endl;
+#endif
+    if (write(socket, data, len) != len) {
+        res.set_error("Error when writing field data");
+        return res;
+    }
+    res.set_result(true);
+
+#ifdef DEBUG
+    cout << BLUE << "Content (hex): ";
+    print_debug(data, len);
+    cout << RESET << endl;
+#endif
+    return res;
+}
+
+Maybe<tuple<flen, unsigned char *>> read_field(int socket) {
+    Maybe<tuple<flen, unsigned char *>> res;
+
+    ssize_t received_len = 0;
+    ssize_t read_len;
+    flen len;
+    while ((unsigned long)received_len < sizeof(flen)) {
+        if ((read_len = read(socket, (uchar *)&len + received_len,
+                             sizeof(flen) - received_len)) <= 0) {
+            res.set_error("Error when reading field length");
+            return res;
+        }
+        received_len += read_len;
+    }
+
+#ifdef DEBUG
+
+    cout << GREEN << "Field length: " << len << RESET << endl;
+#endif
+    unsigned char *r = new unsigned char[len];
+
+    received_len = 0;
+    while (received_len < len) {
+        if ((read_len = read(socket, r + received_len, len - received_len)) <=
+            0) {
+            delete[] r;
+            res.set_error("Error when reading field");
+            return res;
+        }
+        received_len += read_len;
+    }
+
+#ifdef DEBUG
+    cout << GREEN << "Content (hex): ";
+    print_debug(reinterpret_cast<unsigned char *>(r), len);
+    cout << endl << RESET;
+#endif
+
+    res.set_result({len, r});
+    return res;
+}
+
 unsigned char mtype_to_uc(mtypes m) { return (unsigned char)m; }
 
 Maybe<tuple<seqnum, unsigned char *>> read_header(int socket) {
@@ -217,7 +281,7 @@ Maybe<tuple<seqnum, unsigned char *>> read_header(int socket) {
     return res;
 }
 
-unsigned char *string_to_uchar(string s) {
+unsigned char *string_to_uchar(const string &s) {
     unsigned char *res = new unsigned char[s.length() + 1];
     memcpy(res, s.c_str(), s.length() + 1);
     return res;
@@ -331,8 +395,10 @@ void send_error_response(int sock, unsigned char *key, const char *msg) {
 
     // Encryption of the filename
     unsigned char *ct = new unsigned char[FNAME_MAX_LEN + get_block_size()];
-    if (EVP_EncryptUpdate(ctx, ct, &len, (unsigned char *)msg,
-                          strlen(msg) + 1) != 1) {
+    if (EVP_EncryptUpdate(
+            ctx, ct, &len,
+            reinterpret_cast<unsigned char *>(const_cast<char *>(msg)),
+            strlen(msg) + 1) != 1) {
         delete[] ct;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();

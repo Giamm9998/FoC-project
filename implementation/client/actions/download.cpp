@@ -13,10 +13,11 @@ void download(int sock, unsigned char *key) {
 
     cout << "What do you want to download? ";
     unsigned char filename[FNAME_MAX_LEN] = {0};
-    if (fgets((char *)filename, FNAME_MAX_LEN, stdin) == nullptr) {
+    if (fgets(reinterpret_cast<char *>(filename), FNAME_MAX_LEN, stdin) ==
+        nullptr) {
         handle_errors();
     }
-    filename[strcspn((char *)filename, "\n")] = '\0';
+    filename[strcspn(reinterpret_cast<char *>(filename), "\n")] = '\0';
 
     cout << "Where do you want to save the file? ";
     char output_file[FNAME_MAX_LEN] = {0};
@@ -165,7 +166,7 @@ void download(int sock, unsigned char *key) {
         }
 
         // Read ciphertext
-        auto ct_res = read_field<uchar>(sock);
+        auto ct_res = read_field(sock);
         if (ct_res.is_error) {
             EVP_CIPHER_CTX_free(ctx);
             fclose(output_file_fp);
@@ -187,7 +188,7 @@ void download(int sock, unsigned char *key) {
         }
 
         // Read tag
-        auto tag_res = read_field<uchar>(sock);
+        auto tag_res = read_field(sock);
         if (tag_res.is_error) {
             EVP_CIPHER_CTX_free(ctx);
             fclose(output_file_fp);

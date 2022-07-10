@@ -59,76 +59,13 @@ Maybe<bool> send_header(int socket, mtypes type);
 Maybe<bool> send_header(int socket, mtypes type, seqnum seq_num, uchar *iv,
                         int iv_len);
 
-template <typename T> Maybe<bool> send_field(int socket, flen len, T *data) {
-    Maybe<bool> res;
-    if (write(socket, &len, sizeof(flen)) != sizeof(flen)) {
-        res.set_error("Error when writing field length");
-        return res;
-    }
-
-#ifdef DEBUG
-    cout << BLUE << "Field length: " << len << RESET << endl;
-#endif
-    if (write(socket, data, len) != len) {
-        res.set_error("Error when writing field data");
-        return res;
-    }
-    res.set_result(true);
-
-#ifdef DEBUG
-    cout << BLUE << "Content (hex): ";
-    print_debug((unsigned char *)data, len);
-    cout << RESET << endl;
-#endif
-    return res;
-}
-
-template <typename T> Maybe<tuple<flen, T *>> read_field(int socket) {
-    Maybe<tuple<flen, T *>> res;
-
-    ssize_t received_len = 0;
-    ssize_t read_len;
-    flen len;
-    while ((unsigned long)received_len < sizeof(flen)) {
-        if ((read_len = read(socket, (uchar *)&len + received_len,
-                             sizeof(flen) - received_len)) <= 0) {
-            res.set_error("Error when reading field length");
-            return res;
-        }
-        received_len += read_len;
-    }
-
-#ifdef DEBUG
-
-    cout << GREEN << "Field length: " << len << RESET << endl;
-#endif
-    T *r = new T[len];
-
-    received_len = 0;
-    while (received_len < len) {
-        if ((read_len = read(socket, r + received_len, len - received_len)) <=
-            0) {
-            delete[] r;
-            res.set_error("Error when reading field");
-            return res;
-        }
-        received_len += read_len;
-    }
-
-#ifdef DEBUG
-    cout << GREEN << "Content (hex): ";
-    print_debug((unsigned char *)r, len);
-    cout << endl << RESET;
-#endif
-
-    res.set_result({len, r});
-    return res;
-}
+Maybe<bool> send_field(int socket, flen len, unsigned char *data);
+Maybe<tuple<flen, unsigned char *>> read_field(int socket);
 
 unsigned char mtype_to_uc(mtypes m);
 Maybe<tuple<seqnum, unsigned char *>> read_header(int socket);
 
-unsigned char *string_to_uchar(string my_string);
+unsigned char *string_to_uchar(const string &my_string);
 
 /* Returns the path to the user storage */
 fs::path get_user_storage_path(char *username);

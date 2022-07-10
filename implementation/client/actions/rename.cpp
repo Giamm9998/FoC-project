@@ -15,17 +15,19 @@ void rename(int sock, unsigned char *key) {
 
     // get f_old
     cout << "File to rename: ";
-    if (fgets((char *)f_old, FNAME_MAX_LEN, stdin) == nullptr) {
+    if (fgets(reinterpret_cast<char *>(f_old), FNAME_MAX_LEN, stdin) ==
+        nullptr) {
         handle_errors();
     }
-    f_old[strcspn((char *)f_old, "\n")] = '\0';
+    f_old[strcspn(reinterpret_cast<char *>(f_old), "\n")] = '\0';
 
     // get f_new
     cout << "New name: ";
-    if (fgets((char *)f_new, FNAME_MAX_LEN, stdin) == nullptr) {
+    if (fgets(reinterpret_cast<char *>(f_new), FNAME_MAX_LEN, stdin) ==
+        nullptr) {
         handle_errors();
     }
-    f_new[strcspn((char *)f_new, "\n")] = '\0';
+    f_new[strcspn(reinterpret_cast<char *>(f_new), "\n")] = '\0';
 
     // Generate iv for message
     auto iv_res = gen_iv();
@@ -150,7 +152,7 @@ void rename(int sock, unsigned char *key) {
     }
 
     // read ciphertext
-    auto ct_res = read_field<uchar>(sock);
+    auto ct_res = read_field(sock);
     if (ct_res.is_error) {
         delete[] iv;
         handle_errors();
@@ -159,14 +161,10 @@ void rename(int sock, unsigned char *key) {
     ct_len = get<0>(ct_tuple);
     ct = get<1>(ct_tuple);
 
-    // Allocate plaintext of the length == ciphertext length
-    auto *pt = new unsigned char[ct_len];
-
     // read tag
-    auto tag_res = read_field<uchar>(sock);
+    auto tag_res = read_field(sock);
     if (tag_res.is_error) {
         delete[] ct;
-        delete[] pt;
         delete[] iv;
         handle_errors();
     }
@@ -177,7 +175,6 @@ void rename(int sock, unsigned char *key) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         handle_errors("Could not decrypt message (alloc)");
     }
 
@@ -185,7 +182,6 @@ void rename(int sock, unsigned char *key) {
         delete[] iv;
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -202,19 +198,18 @@ void rename(int sock, unsigned char *key) {
     if (err != 1) {
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
 
-    int pt_len;
+    // Allocate plaintext of the length == ciphertext length
+    auto *pt = new unsigned char[ct_len];
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
         delete[] tag;
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
     }
-    pt_len = len;
 
     // GCM tag check
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
@@ -226,7 +221,6 @@ void rename(int sock, unsigned char *key) {
         delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
     }
-    pt_len += len;
 
     cout << endl << pt << endl;
 

@@ -15,6 +15,7 @@
 #include <tuple>
 
 using namespace std;
+namespace fs = std::filesystem;
 
 void free_user_keys(map<string, EVP_PKEY *> keys) {
     for (auto it = keys.begin(); it != keys.end(); it++) {
@@ -25,7 +26,7 @@ void free_user_keys(map<string, EVP_PKEY *> keys) {
 
 // Possible users of the server
 string users[2] = {"alice", "bob"};
-char server_name[] = "server";
+unsigned char server_name[] = "server";
 
 /* Reads all the public keys of the registered users */
 static map<string, EVP_PKEY *> setup_keys() {
@@ -37,8 +38,7 @@ static map<string, EVP_PKEY *> setup_keys() {
 
         // Get the user public key path
         auto user_key_path =
-            (std::filesystem::canonical(".") / "certificates" / (user + ".pub"))
-                .string();
+            (fs::canonical(".") / "certificates" / (user + ".pub")).string();
 
         // Open the public key file
         if ((public_key_fp = fopen(user_key_path.c_str(), "r")) == nullptr) {
@@ -95,7 +95,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     }
 
     // Read the username of the client
-    auto username_result = read_field<char>(socket);
+    auto username_result = read_field(socket);
     if (username_result.is_error) {
         free_user_keys(user_keys);
         handle_errors(username_result.error);
@@ -109,7 +109,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
 #endif
 
     // Check that it is registered on the server
-    auto finder = user_keys.find(username);
+    auto finder = user_keys.find(reinterpret_cast<char *>(username));
     EVP_PKEY *client_pubkey = nullptr;
     if (finder != user_keys.end()) {
         client_pubkey = finder->second;
@@ -128,7 +128,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     }
 
     // Read client half key in PEM format
-    auto half_key_result = read_field<uchar>(socket);
+    auto half_key_result = read_field(socket);
     if (half_key_result.is_error) {
         free_user_keys(user_keys);
         delete[] username;
@@ -205,7 +205,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
 
     // Get the length and a pointer to the bio's memory data
     long server_half_key_len;
-    char *server_half_key_ptr;
+    unsigned char *server_half_key_ptr;
     if ((server_half_key_len =
              BIO_get_mem_data(tmp_bio, &server_half_key_ptr)) <= 0) {
         free_user_keys(user_keys);
@@ -237,12 +237,12 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     }
 
     // Copy the half key for later usage (signature computation/verification)
-    char *server_half_key_pem = new char[server_half_key_len];
+    unsigned char *server_half_key_pem = new unsigned char[server_half_key_len];
     memcpy(server_half_key_pem, server_half_key_ptr, server_half_key_len);
 
     // Actually send the half key
-    auto send_server_half_key_result = send_field<char>(
-        socket, (flen)server_half_key_len, server_half_key_ptr);
+    auto send_server_half_key_result =
+        send_field(socket, (flen)server_half_key_len, server_half_key_ptr);
 
     // and check the result
     if (send_server_half_key_result.is_error) {
@@ -307,7 +307,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
 
     // Get the length and a pointer to the bio's memory data
     long server_certificate_len;
-    char *server_certificate_ptr;
+    unsigned char *server_certificate_ptr;
     if ((server_certificate_len =
              BIO_get_mem_data(tmp_bio, &server_certificate_ptr)) <= 0) {
         free_user_keys(user_keys);
@@ -335,7 +335,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     }
 
     // Actually send the certificate
-    auto send_server_certificate_result = send_field<char>(
+    auto send_server_certificate_result = send_field(
         socket, (flen)server_certificate_len, server_certificate_ptr);
 
     // and check the result
@@ -480,7 +480,7 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
     }
 
     // Receive client signature and check it
-    auto client_signature_res = read_field<unsigned char>(socket);
+    auto client_signature_res = read_field(socket);
     if (client_signature_res.is_error) {
         free_user_keys(user_keys);
         delete[] username;
@@ -590,5 +590,5 @@ tuple<char *, unsigned char *> authenticate(int socket, int key_len) {
 
     auto key = key_res.result;
 
-    return {username, key};
+    return {reinterpret_cast<char *>(username), key};
 }

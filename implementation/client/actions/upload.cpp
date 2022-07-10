@@ -12,14 +12,16 @@ namespace fs = std::filesystem;
 void upload(int sock, unsigned char *key) {
     cout << "What do you want to upload? ";
     unsigned char filename[FNAME_MAX_LEN] = {0};
-    if (fgets((char *)filename, FNAME_MAX_LEN, stdin) == nullptr) {
+    if (fgets(reinterpret_cast<char *>(filename), FNAME_MAX_LEN, stdin) ==
+        nullptr) {
         handle_errors();
     }
-    filename[strcspn((char *)filename, "\n")] = '\0';
+    filename[strcspn(reinterpret_cast<char *>(filename), "\n")] = '\0';
 
     // Make sure that the file can be read before
     FILE *input_file_fp;
-    if ((input_file_fp = fopen((char *)filename, "r")) == nullptr) {
+    if ((input_file_fp = fopen(reinterpret_cast<char *>(filename), "r")) ==
+        nullptr) {
         cout << "Error - Could not open input file for reading" << endl;
         return;
     }
@@ -154,7 +156,7 @@ void upload(int sock, unsigned char *key) {
     }
 
     // read ciphertext
-    auto ct_res = read_field<uchar>(sock);
+    auto ct_res = read_field(sock);
     if (ct_res.is_error) {
         delete[] iv;
         EVP_CIPHER_CTX_free(ctx);
@@ -165,15 +167,11 @@ void upload(int sock, unsigned char *key) {
     ct_len = get<0>(ct_tuple);
     ct = get<1>(ct_tuple);
 
-    // Allocate plaintext of the length == ciphertext length
-    auto *pt = new unsigned char[ct_len];
-
     // read tag
-    auto tag_res = read_field<uchar>(sock);
+    auto tag_res = read_field(sock);
     if (tag_res.is_error) {
         delete[] ct;
         fclose(input_file_fp);
-        delete[] pt;
         delete[] iv;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
@@ -185,7 +183,6 @@ void upload(int sock, unsigned char *key) {
         fclose(input_file_fp);
         delete[] ct;
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
@@ -203,12 +200,12 @@ void upload(int sock, unsigned char *key) {
         delete[] ct;
         fclose(input_file_fp);
         delete[] tag;
-        delete[] pt;
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
 
-    int pt_len;
+    // Allocate plaintext of the length == ciphertext length
+    auto *pt = new unsigned char[ct_len];
     if (EVP_DecryptUpdate(ctx, pt, &len, ct, ct_len) != 1) {
         delete[] ct;
         fclose(input_file_fp);
@@ -217,7 +214,6 @@ void upload(int sock, unsigned char *key) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len = len;
 
     // GCM tag check
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
@@ -230,7 +226,6 @@ void upload(int sock, unsigned char *key) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len += len;
 
     delete[] ct;
     delete[] tag;
@@ -249,12 +244,12 @@ void upload(int sock, unsigned char *key) {
 
     // Send the file a chunk at a time
     unsigned char buffer[CHUNK_SIZE] = {0};
-    size_t read_len;
     ct = new unsigned char[sizeof(buffer) + get_block_size()];
     tag = new unsigned char[TAG_LEN];
     mtypes msg_type = UploadChunk;
 
     for (;;) {
+        size_t read_len;
         if ((read_len = fread(buffer, sizeof(*buffer), sizeof(buffer),
                               input_file_fp)) != sizeof(buffer)) {
             // When we read less than expected we could either have an error, or
@@ -280,7 +275,7 @@ void upload(int sock, unsigned char *key) {
             }
         }
         // Generate iv for message
-        auto iv_res = gen_iv();
+        iv_res = gen_iv();
         if (iv_res.is_error) {
             delete[] ct;
             delete[] tag;
@@ -291,7 +286,7 @@ void upload(int sock, unsigned char *key) {
         iv = iv_res.result;
 
         // Send chunk header
-        auto send_packet_header_res =
+        send_packet_header_res =
             send_header(sock, msg_type, seq_num, iv, get_iv_len());
         if (send_packet_header_res.is_error) {
             delete[] iv;
@@ -314,7 +309,7 @@ void upload(int sock, unsigned char *key) {
 
         // Authenticated data
         err = 0;
-        unsigned char header = mtype_to_uc(msg_type);
+        header = mtype_to_uc(msg_type);
         err |= EVP_EncryptUpdate(ctx, nullptr, &len, &header,
                                  sizeof(unsigned char));
         err |= EVP_EncryptUpdate(ctx, nullptr, &len, seqnum_to_uc(),
@@ -357,7 +352,7 @@ void upload(int sock, unsigned char *key) {
         }
 
         // Send ciphertext
-        auto ct_send_res = send_field(sock, (flen)ct_len, ct);
+        ct_send_res = send_field(sock, (flen)ct_len, ct);
         if (ct_send_res.is_error) {
             delete[] ct;
             delete[] tag;
@@ -366,7 +361,7 @@ void upload(int sock, unsigned char *key) {
             handle_errors(ct_send_res.error);
         }
 
-        auto tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
+        tag_send_res = send_field(sock, (flen)TAG_LEN, tag);
         if (tag_send_res.is_error) {
             delete[] tag;
             delete[] ct;
@@ -419,7 +414,7 @@ void upload(int sock, unsigned char *key) {
     }
 
     // read ciphertext
-    ct_res = read_field<uchar>(sock);
+    ct_res = read_field(sock);
     if (ct_res.is_error) {
         delete[] iv;
         EVP_CIPHER_CTX_free(ctx);
@@ -433,7 +428,7 @@ void upload(int sock, unsigned char *key) {
     pt = new unsigned char[ct_len];
 
     // read tag
-    tag_res = read_field<uchar>(sock);
+    tag_res = read_field(sock);
     if (tag_res.is_error) {
         delete[] ct;
         delete[] pt;
@@ -476,7 +471,6 @@ void upload(int sock, unsigned char *key) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len = len;
 
     // GCM tag check
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag);
@@ -489,7 +483,6 @@ void upload(int sock, unsigned char *key) {
         EVP_CIPHER_CTX_free(ctx);
         handle_errors();
     }
-    pt_len += len;
 
     delete[] ct;
     delete[] tag;
