@@ -10,6 +10,7 @@ typedef uint seqnum;
 typedef ushort flen;
 #define FLEN_MAX ((1 << 16) - 1)
 #define SEQNUM_MAX ((1UL << 32) - 1)
+#define FSIZE_MAX ((1UL << 32) - 1)
 
 #define TAG_LEN 16
 #define FNAME_MAX_LEN 128

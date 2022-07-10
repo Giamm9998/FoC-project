@@ -25,6 +25,11 @@ void upload(int sock, unsigned char *key) {
         cout << "Error - Could not open input file for reading" << endl;
         return;
     }
+    fs::path input_path = reinterpret_cast<char *>(filename);
+    if (fs::file_size(input_path) > FSIZE_MAX) {
+        cout << "Error - File too big for upload (max 4Gb)";
+        return;
+    }
 
     // Generate iv for message
     auto iv_res = gen_iv();

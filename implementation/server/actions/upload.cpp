@@ -224,7 +224,7 @@ void upload(int sock, unsigned char *key, char *username) {
     pt = new unsigned char[CHUNK_SIZE + get_block_size()];
     fs::path output_file_path = validation_res.result;
     FILE *output_file_fp = fopen(output_file_path.native().c_str(), "w");
-
+    unsigned long received_size = 0;
     for (;;) {
         auto server_response_header_res = get_mtype(sock);
         if (server_response_header_res.is_error) {
@@ -345,6 +345,18 @@ void upload(int sock, unsigned char *key, char *username) {
         EVP_CIPHER_CTX_reset(ctx);
         inc_seqnum();
 
+        received_size += pt_len;
+        if (received_size > FSIZE_MAX) {
+            EVP_CIPHER_CTX_free(ctx);
+            fclose(output_file_fp);
+            delete[] pt;
+            if (fs::exists(output_file_path)) {
+                fs::remove(output_file_path);
+            }
+            send_error_response(sock, key, "Error - File too big");
+            return;
+        }
+
         // Finally, handle the message
         switch (server_response_header) {
         case UploadChunk:
@@ -354,6 +366,9 @@ void upload(int sock, unsigned char *key, char *username) {
                 EVP_CIPHER_CTX_free(ctx);
                 fclose(output_file_fp);
                 delete[] pt;
+                if (fs::exists(output_file_path)) {
+                    fs::remove(output_file_path);
+                }
                 handle_errors("Error when writing uploaded chunk to file");
             }
             break;
