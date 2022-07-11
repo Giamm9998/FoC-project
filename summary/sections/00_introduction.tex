@@ -1,13 +1,7 @@
 
-\section{Protocol and messages definition}
+\section{Key agreement protocol}
 
-Legend:
-\begin{itemize}
-    \item \fcolorbox{black}{lightgreen}{\rule{0pt}{6pt}\rule{6pt}{0pt}}\quad authenticated
-    \item \fcolorbox{black}{lightred}{\rule{0pt}{6pt}\rule{6pt}{0pt}}\quad encrypted and authenticated
-\end{itemize}
-
-\begin{figure}
+\begin{figure}[!ht]
     \centering
     \setlength{\instdist}{5cm}
     \setmscoptions
@@ -54,16 +48,89 @@ Legend:
     \label{fig:key_agreement_protocol}
 \end{figure}
 
+The protocol in \cref{fig:key_agreement_protocol} guarantees the following properties: authentication (of both client and server), key agreement, key freshness, and Perfect Forward Secrecy.
 
-\begin{figure}
+These properties will now be discussed:
+\begin{description}
+    \item[Authentication] The authentication of the client and of the server is given by the digital signatures. Moreover, the asymmetric keys used are also authentic, as the server's has the client's public key, and the client receives the server's certificate, which is verified using the root CA's certificate.
+    \item[Key agreement] The use of (authenticated) Diffie-Hellman ensures the agreement on the same symmetric key by both client and server.
+    \item[Key freshness] The key freshness, and in general the protection from replay attacks, is guaranteed by the signature. In particular, the Diffie-Hellman half keys are used ``as nonces''.
+    \item[PFS] Perfect Forward Secrecy is given by the use of Diffie-Hellman, as the future keys are not related in any way to the past ones.
+\end{description}
+
+
+\section{Message format}
+\subsection{Key agreement message format}\
+\label{subsec:key_agreement_format}
+The message format for the key agreement protocol is the one shown in \cref{fig:agreement_message_format}. The ``type'' field is the one used to indicate the message type. The payload is sent as pairs created as the payload length (2 bytes) and the actual content (variable length).
+For example, the first message of the key agreement protocol for the user ``bob'' is represented in \cref{fig:agreement_message_example}.
+\begin{figure}[!ht]
     \centering
     \begin{bytefield}{40}
         \bitheader{0,7,8,15,16,23,24,31,32,39} \\
         \bitbox{8}{Type} & \bitbox[lrt]{32}{} \\
         \wordbox[lrb]{2}{Payload (variable length)}
     \end{bytefield}
-    \caption{General message format}
+    \caption{Key agreement message format}
+    \label{fig:agreement_message_format}
 \end{figure}
+
+\begin{figure}[!ht]
+    \centering
+    \begin{bytefield}{40}
+        \bitheader{0,7,8,15,16,23,24,31,32,39} \\
+        \bitbox{8}{AuthStart} & \bitbox{16}{4} & \bitbox{16}{bo} \\
+        \bitbox{16}{b\textbackslash 0} & \bitbox{16}{$g^x$ length (PEM)} & \bitbox[lrt]{8}{} \\
+        \wordbox[lrb]{3}{$g^x$ (PEM)}
+    \end{bytefield}
+    \caption{Key agreement example (first message)}
+    \label{fig:agreement_message_example}
+\end{figure}
+
+\newpage
+\subsection{Transport message format}
+\Cref{fig:transport_protocol} shows the message format for the transport protocol used by the application.
+The type field is used as in the key agreement message format. The sequence number is used to prevent replay attacks. In particular, it is 32-bits long, it starts from zero, and, before the maximum value $2^{32}$ is reached, the connection between client and server is gracefully closed.
+The used encryption cipher is AES-256 GCM, therefore we also send the IV and the tag, along with the application payload. This encryption mode has been chosen as it allows to guarantee authenticity of the encrypted data.
+As it can be seen from the message format, the type and sequence number of the message are also authenticated (using GCM). The payload is encoded as previously described in \cref{subsec:key_agreement_format}.
+
+Legend:
+\begin{itemize}
+    \item \fcolorbox{black}{lightgreen}{\rule{0pt}{6pt}\rule{6pt}{0pt}}\quad authenticated
+    \item \fcolorbox{black}{lightred}{\rule{0pt}{6pt}\rule{6pt}{0pt}}\quad encrypted and authenticated
+\end{itemize}
+\begin{figure}[!ht]
+    \centering
+    \begin{bytefield}{40}
+        \bitheader{0,7,8,15,16,23,24,31,32,39} \\
+        \bitbox{8}[bgcolor=lightgreen]{Type} &
+        \bitbox{32}[bgcolor=lightgreen]{Sequence number} \\
+        \wordbox[lrt]{2}[]{IV} \\
+        \bitbox[lrb]{16}[]{} & \bitbox[lrt]{24}[bgcolor=lightred]{} \\
+        \wordbox[lrb]{5}[bgcolor=lightred]{Payload (variable length)} \\
+        \wordbox[lrt]{3}[]{Tag}\\
+        \bitbox[lrb]{8}{} & \bitbox[tl]{32}{}
+    \end{bytefield}
+    \caption{Transport protocol}
+    \label{fig:transport_protocol}
+\end{figure}
+
+\newpage
+\section{Operations}
+The required operations have been implemented. The sequence diagram for each operation is reported in this section.
+
+\subsection{Upload}
+\Cref{fig:transport_protocol_file_upload} shows the sequence diagram for upload.
+
+The client requests the upload of a file by sending a filename. The filename is checked to exist locally on the client-side, and to not be larger than 4GB. The server also checks that the filename is valid, meaning that:
+\begin{itemize}
+    \item the file doesn't already exist on the user's storage
+    \item the filename does not attempt a path traversal
+\end{itemize}
+If the above holds, the client can proceed to uploading the file. The upload is done by chunks of size $2^{15}$ bytes each. When uploading the file, the server additionally checks that the file size of 4GB is not exceeded.
+To indicate the end of the upload, we use a different message type.
+
+If an error occurs on the client-side, the client can notify the server and abort the upload. The partially uploaded file on the server storage is deleted.
 
 \begin{figure}
     \centering
@@ -116,6 +183,14 @@ Legend:
     \label{fig:transport_protocol_file_upload}
 \end{figure}
 
+\subsection{Download}
+The download (\cref{fig:transport_protocol_file_download}) is very similar to the upload procedure, but with inverted roles.
+The relevant security checks are the following:
+\begin{itemize}
+    \item The filename to download exists
+    \item The filename to download is not outside of the user's storage directory (path traversal)
+    \item The filename on which the client saves the downloaded file does not exist (no overwriting by error)
+\end{itemize}
 \begin{figure}
     \centering
     \setlength{\instdist}{8.5cm}
@@ -154,6 +229,9 @@ Legend:
     \label{fig:transport_protocol_file_download}
 \end{figure}
 
+
+\subsection{Delete}
+The delete operation (\cref{fig:transport_protocol_file_delete}) requires the client to send the filename to delete. After checking its validity as in the previous sections, the server asks for a confirmation. If the client confirms, the file is deleted, otherwise the operations is aborted. Notice that in the third message only authentication of the message type is required, and there is no meaningful encrypted value, therefore we encrypt a randomly generated sequence of byte of length 12.
 \begin{figure}
     \centering
     \setlength{\instdist}{8.5cm}
@@ -202,6 +280,8 @@ Legend:
     \label{fig:transport_protocol_file_delete}
 \end{figure}
 
+\subsection{List}
+File listing is straightforward (\cref{fig:transport_protocol_file_listing}). The client requests the listing, and the server simply reads the file list in the user's storage and sends it back.
 \begin{figure}
     \centering
     \setlength{\instdist}{8.5cm}
@@ -234,6 +314,8 @@ Legend:
     \label{fig:transport_protocol_file_listing}
 \end{figure}
 
+\subsection{Rename}
+File renaming requires the client to send two filenames, one for the file to rename, and one for the new name of the file. Both are checked to be valid (as previously seen), the first one is checked to exist, and the latter is checked to not exist. If the above holds, then the file is renamed.
 \begin{figure}
     \centering
     \setlength{\instdist}{8.5cm}
@@ -271,6 +353,13 @@ Legend:
     \label{fig:transport_protocol_file_rename}
 \end{figure}
 
+\subsection{Logout}
+For the logout, the client is always the initiator.
+Logout can happen in two different situations:
+\begin{itemize}
+    \item the client can request it from the main menu, or by sending a SIGINT signal
+    \item the client can request it when the sequence number approaches the maximum possible one. A certain threshold from the maximum sequence number is kept to allow the logout procedure to execute
+\end{itemize}
 \begin{figure}
     \centering
     \setlength{\instdist}{8.5cm}
@@ -303,19 +392,4 @@ Legend:
     \centering
     \caption{Log out}
     \label{fig:transport_protocol_log_out}
-\end{figure}
-
-\begin{figure}
-    \centering
-    \begin{bytefield}{40}
-      \bitheader{0,7,8,15,16,23,24,31,32,39} \\
-        \bitbox{8}[bgcolor=lightgreen]{Type} & 
-          \bitbox{32}[bgcolor=lightgreen]{Sequence number} \\ 
-        \wordbox[lrt]{2}[bgcolor=lightgreen]{IV} \\ 
-        \bitbox[lrb]{16}[bgcolor=lightgreen]{} & \bitbox[lrt]{24}[bgcolor=lightred]{} \\
-        \wordbox[lrb]{5}[bgcolor=lightred]{Payload (variable length)} \\
-        \wordbox[lrt]{3}[]{Tag}\\
-        \bitbox[lrb]{8}{} & \bitbox[tl]{32}{}
-      \end{bytefield}
-    \caption{Transport protocol}
 \end{figure}

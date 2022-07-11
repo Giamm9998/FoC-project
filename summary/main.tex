@@ -16,12 +16,6 @@
 \usepackage{msc}
 \usepackage{bytefield}
 
-\pagestyle{fancy}
-\fancyhead{}
-\cfoot{} % get rid of the page number
-\renewcommand{\headrulewidth}{0pt}
-\renewcommand{\footrulewidth}{0pt}
-
 %% No spaces between items in a list
 \setlist{noitemsep}
 
@@ -33,12 +27,15 @@
 %% Add ./images to images path
 \graphicspath{{./images/}, {./logos/}}
 
+\newcommand{\email}[1]{\href{mailto:#1}{\footnotesize\texttt{#1}}} % Email
+
 %% Title, author, university, course and year
-\def\thetitle{Example title}
-\author[a]{Alessandro Zanatta}
+\def\thetitle{Cloud storage project report}
+\author[a]{Alessandro Zanatta} \affil[a]{matr. 647047 -- \email{a.zanatta1@studenti.unipi.it}}
+\author[b]{Gianmarco Pastore} \affil[b]{matr. 646236 -- \email{g.pastore11@studenti.unipi.it}}
 \renewcommand\Affilfont{\small}
 \def\uni{University\\of Pisa} % University name
-\def\course{Example course title} % Course name
+\def\course{Applied cryptography} % Course name
 \def\ay{2021/22} % Academic year
 
 % MSC sequence diagrams default options

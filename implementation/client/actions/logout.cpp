@@ -112,8 +112,6 @@ void logout(int sock, unsigned char *key) {
     // trigger the SIGUSR1 signal again
     seq_num++;
 
-    shutdown(sock, SHUT_WR);
-
     //------------------------------------------
 
     // -----------receive client logout request-----------
@@ -207,8 +205,6 @@ void logout(int sock, unsigned char *key) {
     delete[] ct;
     delete[] tag;
     delete[] pt;
-
-    shutdown(sock, SHUT_RD);
 
     // END OF COMMUNICATION
 }

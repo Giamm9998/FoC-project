@@ -44,6 +44,12 @@ Maybe<bool> handle_renaming(char *username, unsigned char *f_old,
         return res;
     }
 
+    // check that new filename does not exist
+    if (fs::exists(f_new_path)) {
+        res.set_error("Error - New filename already exists");
+        return res;
+    }
+
     // renaming
     fs::rename(f_old_path, f_new_path);
 

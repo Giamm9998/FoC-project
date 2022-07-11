@@ -97,8 +97,6 @@ void logout(int sock, unsigned char *key) {
 
     seq_num++;
 
-    shutdown(sock, SHUT_RD);
-
     //---------------------------------------------------------------------------------
     //---------------------------------------------------------------------------------
     //---------------------------------------------------------------------------------
@@ -200,8 +198,6 @@ void logout(int sock, unsigned char *key) {
 
     delete[] ct;
     delete[] tag;
-
-    shutdown(sock, SHUT_WR);
 
     // end of connection
 }
